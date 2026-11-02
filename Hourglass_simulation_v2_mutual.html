@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hourglass simulation</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600&display=swap">
+<style>
+:root{--bg:#e8ecf1;--panel:#f6f8fb;--ink:#17202b;--mute:#5c6978;--line:#c9d1dc;--accent:#b7791f;--glass:rgba(120,160,200,.16);--glassline:rgba(60,90,125,.55);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10161e;--panel:#18202b;--ink:#e6ebf2;--mute:#93a0b1;--line:#2b3644;--accent:#e0a540;--glass:rgba(150,190,230,.10);--glassline:rgba(160,195,230,.5);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10161e;--panel:#18202b;--ink:#e6ebf2;--mute:#93a0b1;--line:#2b3644;--accent:#e0a540;--glass:rgba(150,190,230,.10);--glassline:rgba(160,195,230,.5);color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 "Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 32px;display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:28px;align-items:start}
+.left{position:sticky;top:12px}
+h1{font-size:26px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 16px}
+#c{width:min(100%,calc((100vh - 70px)*0.625));min-width:220px;max-width:400px;aspect-ratio:400/640;display:block;touch-action:none;margin:0 auto}
+.quick{position:sticky;top:0;z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:0 0 10px 10px;padding:10px 12px 2px;margin:0 0 14px;box-shadow:0 6px 12px -8px rgba(0,0,0,.25)}
+.quick .stats{margin-bottom:8px;gap:6px}.quick .stats b{font-size:16px}.quick .stats div{padding:5px 2px}.quick .stats span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.qbar{display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap}.qbar .btns{margin:0 0 6px}.quick button{padding:7px 14px}.qchk{display:flex;gap:2px 14px;flex-wrap:wrap}.quick .chk{font-size:13px;margin-bottom:5px}
+#qDEM{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 14px}#qDEM .row{margin:0 0 6px}#qDEM label{font-size:13px}
+.cap{font-size:12.5px;color:var(--mute);margin:6px 0 0;min-height:1.3em}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+.row{margin:0 0 13px}
+.row label{display:flex;justify-content:space-between;gap:8px;font-weight:600;font-size:14px}
+.row output{font-weight:400;color:var(--accent);font-variant-numeric:tabular-nums;text-align:right}
+.row small{display:block;color:var(--mute);font-size:12.5px}
+input[type=range]{width:100%;accent-color:var(--accent);margin:6px 0 0}
+select{font:inherit;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%;margin-top:4px}
+.btns{display:flex;gap:10px;margin:4px 0 12px;flex-wrap:wrap}
+button{font:inherit;font-weight:600;padding:9px 16px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button.primary,.seg button.on{background:var(--accent);border-color:var(--accent);color:#1a1205}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:flex;gap:0;margin:0 0 12px}.seg button{border-radius:0;flex:1;padding:9px 8px}.seg button:first-child{border-radius:7px 0 0 7px}.seg button:last-child{border-radius:0 7px 7px 0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;text-align:center}
+.stats div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 4px}
+.stats b{display:block;font-size:19px;font-variant-numeric:tabular-nums}
+.stats span{font-size:12px;color:var(--mute)}
+.cmp{font-size:13.5px;margin:0 0 12px;min-height:2.6em}
+.plots canvas,canvas.pl{width:100%;height:170px;display:block;margin:0 0 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.note{font-size:12.5px;color:var(--mute);margin:0 0 12px}
+.warn{color:#c2410c;font-size:13px;min-height:1.3em;margin:0 0 10px}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:8px}
+.sec{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 10px}.sec canvas{width:100%;aspect-ratio:1;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.sect{font-weight:600;margin:4px 0 10px;color:var(--mute);font-size:13px}
+details{margin:0 0 12px}summary{cursor:pointer;font-weight:600;font-size:14px}
+[hidden]{display:none!important}
+@media(max-width:760px){main{grid-template-columns:1fr}.left{position:static}#c{width:100%}}
+</style>
+</head>
+<body>
+<main>
+<div class="left">
+<canvas id="c" aria-label="Hourglass with flowing sand"></canvas>
+<p class="cap" id="scale"></p>
+</div>
+<section>
+<h1>Hourglass simulation</h1>
+<p class="sub">Grain modes follow every grain (gravity, contacts, rolling and static friction). Fine-sand mode models a real-size glass with millions of grains as a continuum. Stripes are coloured layers, as in Mills et al. (1996).</p>
+<div class="seg" role="group" aria-label="Model"><button id="m2" class="on" aria-pressed="true">Grains 2D</button><button id="m3" aria-pressed="false">Grains 3D</button><button id="mc" aria-pressed="false">Fine sand</button></div>
+<div class="quick" id="quick">
+<div class="stats">
+<div><b id="sTop">0</b><span id="lTop">Top</span></div>
+<div><b id="sBot">0</b><span id="lBot">Bottom</span></div>
+<div><b id="sRate">0</b><span id="lRate">Grains/s</span></div>
+<div><b id="sTime">0:00</b><span id="lTime">Time</span></div>
+</div>
+<div class="qbar"><div class="btns">
+<button class="primary" id="flip">Flip</button>
+<button id="reset">Reset</button>
+<button id="pause">Pause</button>
+</div>
+<div class="qchk"><label class="chk" id="feedRow"><input type="checkbox" id="feed"> Endless sand (refill from the top)</label>
+<label class="chk" id="fastRow"><input type="checkbox" id="fast"> Compute flat out (watch in Replay)</label>
+<label class="chk" id="apRow"><input type="checkbox" id="autopause" checked> Pause when empty</label></div></div>
+<div id="qDEM"><div class="row"><label for="neck">Neck <output id="neckO"></output></label><input id="neck" type="range" min="1.5" max="20" step="0.5" value="5"></div>
+<div class="row"><label for="spd">Speed <output id="spdO"></output></label><input id="spd" type="range" min="0.25" max="4" step="0.25" value="1"></div>
+<div class="row" id="bfRow"><label for="bf"><span id="bfL">Field</span> <output id="bfO"></output></label><input id="bf" type="range" min="0" max="1" step="0.005" value="0.667"></div></div>
+</div>
+<label class="chk"><input type="checkbox" id="auto"> Flip automatically when empty</label>
+
+<div id="recBox"><label class="chk"><input type="checkbox" id="rec" checked> Record the run for replay</label>
+<label class="chk"><input type="checkbox" id="autorep"> Replay automatically when the top bulb empties</label>
+<div class="btns"><button id="replay" disabled>Replay</button><button id="recSave" disabled>Save recording</button><button id="recLoad">Load recording</button><input type="file" id="recFile" accept=".hgrec" hidden><span class="note" id="recInfo" style="align-self:center;margin:0"></span></div>
+<p class="note" id="recIO"></p>
+<div class="panel" id="repPanel" hidden><div class="row"><label for="rt">Replay <output id="rtO"></output></label><input id="rt" type="range" min="0" max="1" step="0.001" value="0"></div>
+<div class="btns"><button id="rplay">Pause</button><select id="rspd" style="width:auto;margin:0"><option value="0.25">0.25× simulated time</option><option value="0.5">0.5×</option><option value="1" selected>1× simulated time</option><option value="2">2×</option><option value="4">4×</option><option value="real">As the real glass (Froude-scaled)</option></select><button id="rexit">Back to live</button></div></div></div>
+<p class="warn" id="warn"></p>
+<p class="cmp" id="cmp"></p>
+<div id="sec" hidden><div class="sec"><canvas id="s1" aria-label="Vertical cross-section through the axis"></canvas><canvas id="s2" aria-label="Horizontal cross-section"></canvas></div>
+<div class="row"><label for="sh">Horizontal slice height above neck <output id="shO"></output></label><input id="sh" type="range" min="0" max="220" step="2" value="40"></div>
+<label class="chk"><input type="checkbox" id="bysp"> Colour the slices by grain speed instead of layer</label>
+<label class="chk"><input type="checkbox" id="cut" checked> Cut away the front half of the 3D view</label>
+<p class="note">Left: vertical slice through the axis (dashed line = height of the horizontal slice). Right: horizontal slice at that height. Drag the 3D view to rotate. <span id="leg"></span></p></div>
+<div class="plots"><canvas id="p1"></canvas><canvas id="p2"></canvas><canvas id="p3"></canvas></div>
+
+<div class="panel" id="demPanel">
+<div class="row" id="backendRow"><label for="backend">Compute on</label><select id="backend"><option value="auto" selected>Whichever is faster here (timed at each start)</option><option value="cpu">CPU only</option><option value="gpu">GPU (WebGPU), even if slower</option></select></div>
+<p class="note" id="engine">Checking for WebGPU…</p>
+<div class="row"><label for="shape">Glass shape</label><select id="shape">
+<option value="classic">Classic (original curve)</option><option value="hourglass">Hourglass, tapered neck (Mills)</option><option value="cone">Cone, 14° (Mills)</option><option value="silo">Silo, 34° shoulders (Mills)</option><option value="bottle">Flat plate with hole (Mills "bottle")</option></select></div>
+<div class="sect">Rebuilds the sand</div>
+<div class="row"><label for="r">Grain size <output id="rO"></output></label><input id="r" type="range" min="0.75" max="5" step="0.25" value="3"><small id="rS"></small></div>
+<div class="row"><label for="poly">Size spread <output id="polyO"></output></label><input id="poly" type="range" min="0" max="0.2" step="0.01" value="0.1"><small>Ballotini sieved 600–710 µm vary about ±8%. With 0% the 2D grains stack into a crystal.</small></div>
+<div class="row"><label for="fill">Fill <output id="fillO"></output></label><input id="fill" type="range" min="0.2" max="1" step="0.05" value="0.85"></div>
+<div class="sect">Changes live</div>
+<p class="note">Neck opening (in grain diameters; Mills used 5–18, flow jams below about 3 in 2D or 4–5 in 3D), simulation speed and field strength are in the bar at the top, which stays on screen.</p>
+<div class="row"><label for="mu">Grain friction <output id="muO"></output></label><input id="mu" type="range" min="0" max="1" step="0.05" value="0.4"></div>
+<div class="row"><label for="muw">Wall friction <output id="muwO"></output></label><input id="muw" type="range" min="0" max="1" step="0.05" value="0.4"></div>
+<div class="row"><label for="e">Bounce <output id="eO"></output></label><input id="e" type="range" min="0" max="0.8" step="0.05" value="0.1"></div>
+<div class="row"><label for="g">Gravity <output id="gO"></output></label><input id="g" type="range" min="0.2" max="2.5" step="0.1" value="1"></div>
+<details><summary>Contact model</summary>
+<label class="chk"><input type="checkbox" id="hist" checked> Static friction (tangential springs)</label>
+<label class="chk"><input type="checkbox" id="stiff" checked> Stiff contacts (more accurate, about 1.6× slower)</label>
+<p class="note">Spring–dashpot contacts with Coulomb friction, matching LAMMPS <i>pair granular hooke</i>. Soft contacts make the flow about 10% (2D) to 13% (3D) faster; the theory line includes that factor. 3D starts with soft contacts so it runs closer to real time.</p></details>
+</div>
+
+<div class="panel" id="magPanel">
+<div class="sect">Magnetism</div>
+<label class="chk"><input type="checkbox" id="magOn"> Ferromagnetic grains in a magnetic field</label>
+<div id="magCtl">
+<div class="row"><label for="mat">Grain material</label><select id="mat"><option value="steel">Steel (χ ≈ 1000, 7.85 g/cm³)</option><option value="magnetite">Ironsand / magnetite (χ ≈ 3, 5.0 g/cm³)</option><option value="nickel">Nickel (χ ≈ 600, 8.9 g/cm³)</option></select></div>
+<p class="note" id="boNote"></p>
+<div class="row"><label for="mfrac">Magnetic fraction <output id="mfracO"></output></label><input id="mfrac" type="range" min="0" max="1" step="0.05" value="1"><small>Share of grains that are ferromagnetic; the rest are non-magnetic (like Sunday et al.'s steel–brass mixtures). Magnetic grains are tinted blue.</small></div>
+<div class="row"><label for="bth">Field direction from vertical <output id="bthO"></output></label><input id="bth" type="range" min="0" max="180" step="1" value="0"><small>0° points along gravity, 90° is horizontal. Induced dipoles only care about the axis, so 0° and 180° are the same.</small></div>
+<label class="chk" title="Each grain is magnetised by the applied field plus the dipole fields of nearby magnetised grains"><input type="checkbox" id="mutual"> Grains magnetise each other (mutual induction)</label>
+<small class="note" id="mutNote">Off: each grain's moment comes from the applied field only. On: the field from neighbouring grains is added, so grains in a chain along the field are magnetised more strongly and grains side by side less. This strengthens chains and lets them bundle. Because the forces grow, contacts are stiffened to match, so steel runs up to about 3× slower; magnetite (weaker) much less.</small>
+<div class="row" id="bphRow"><label for="bph">Field azimuth (3D) <output id="bphO"></output></label><input id="bph" type="range" min="0" max="360" step="5" value="0"></div>
+<div class="sect">Field shape and timing</div>
+<div class="row"><label for="fprof">Field shape</label><select id="fprof"><option value="0">Uniform</option><option value="1">Linear gradient along the field</option><option value="2">Magnet below the glass</option><option value="3">Magnet beside the neck</option><option value="4">Radial gradient (about the glass axis)</option></select></div>
+<div class="row" id="fGRow"><label for="fG">Gradient <output id="fGO"></output></label><input id="fG" type="range" min="-1" max="1" step="0.05" value="0.6"><small id="fGnote"></small></div>
+<div class="row" id="fmdRow"><label for="fmd">Magnet distance <output id="fmdO"></output></label><input id="fmd" type="range" min="0.15" max="1.5" step="0.05" value="0.5"><small>From the nearest glass wall, in bulb heights. The field strength set above is the value at that wall point; it falls off as 1/r³.</small></div>
+<div class="row"><label for="ftm">Time variation</label><select id="ftm"><option value="0">Constant</option><option value="1">AC (sine)</option><option value="2">On/off pulses</option><option value="3">Rotating</option><option value="4">Ramp up</option><option value="5">Ramp down</option></select></div>
+<div class="row" id="ffrRow"><label for="ffr">Frequency <output id="ffrO"></output></label><input id="ffr" type="range" min="0" max="1" step="0.01" value="0.57"><small>In real-glass hertz, converted to simulated time with the Froude factor. A full run of this small glass lasts about a real second, so frequencies of a few hertz or more show several cycles.</small></div>
+<div class="row" id="framRow"><label for="fram">Ramp time <output id="framO"></output></label><input id="fram" type="range" min="0.05" max="5" step="0.05" value="0.5"><small>Real-glass seconds.</small></div>
+<canvas id="p6" class="pl" aria-label="Field and flow over time"></canvas>
+<div class="sect">Compared with ordinary sand</div>
+<p class="note">An identical twin of this run (same fill, glass and contact settings, magnetism off) runs in the background from each Reset. The flow is compared over the same simulated time.</p>
+<canvas id="p7" class="pl" aria-label="Grains passed, magnetic vs ordinary"></canvas>
+<canvas id="p8" class="pl" aria-label="Flow-rate deviation from ordinary sand"></canvas>
+<p class="note" id="refInfo"></p>
+<div class="sect">Background sweeps</div>
+<div class="row"><label for="sweepQ">Sweep thoroughness</label><select id="sweepQ"><option value="quick">Quick: 7 points, 1 run each, flow until 40% has fallen</option><option value="thorough" selected>Thorough: 11 points × 3 repeats, steady flow with refill</option><option value="full">Very thorough: 16 points × 5 repeats, larger glass, longer steady flow</option></select></div>
+<div class="btns"><button id="swB">Sweep field strength</button><button id="swD">Sweep field direction</button><button id="swF">Sweep magnetic fraction</button><button id="swG">Sweep gradient or magnet strength</button><button id="swQ">Sweep frequency</button><button id="swX" hidden>Stop sweep</button></div>
+<p class="note" id="swInfo">Each sweep reruns the current glass in background threads (several at once). Thorough sweeps refill the glass from the top so the flow reaches a steady rate, measure it over a fixed window, and repeat each point with different random fills to give error bars.</p>
+<canvas id="p5" class="pl" aria-label="Magnetic share of drained sand"></canvas>
+<canvas id="p4" class="pl" aria-label="Sweep results"></canvas>
+<p class="note" id="swFit"></p>
+<div class="sect">Reading the field from the hourglass</div>
+<p class="note">A finished sweep is turned into a calibration: the graph and formulas run backwards, from what the hourglass shows (flow rate, emptying time) to the field that must be acting. The live run is placed on it using the ordinary-sand twin above.</p>
+<canvas id="p9" class="pl" aria-label="Field inferred from flow"></canvas>
+<p class="note" id="invInfo"></p>
+</div></div>
+<div class="panel" id="fineBox" hidden>
+<div class="row"><label for="fineModel">Fine-sand model</label><select id="fineModel"><option value="dem" selected>Real grains on the GPU (same DEM as the grain modes, ~100,000 small 3D grains)</option><option value="cont">Continuum approximation (instant; Mills' law + kinematic flow)</option></select>
+<small id="fineNote">The GPU model follows every grain with the same contact law as the grain modes, so magnetism, endless sand and replay all work; the grain size slider below sets how fine the sand is (smaller = more grains). It needs WebGPU on real graphics hardware; without it the continuum model is used.</small></div></div>
+<div class="panel" id="contPanel" hidden>
+<div class="row"><label for="cshape">Glass shape</label><select id="cshape">
+<option value="hourglass">Hourglass, tapered neck</option><option value="classic">Classic curve</option><option value="cone">Cone, 14°</option><option value="silo">Silo, 34° shoulders</option><option value="bottle">Flat plate with hole</option></select></div>
+<div class="row"><label for="cw">Bulb width <output id="cwO"></output></label><input id="cw" type="range" min="20" max="160" step="1" value="70"></div>
+<div class="row"><label for="ch">Bulb height <output id="chO"></output></label><input id="ch" type="range" min="20" max="200" step="1" value="90"></div>
+<div class="row"><label for="cd">Grain diameter <output id="cdO"></output></label><input id="cd" type="range" min="0" max="1" step="0.01" value="0.8"><small>Fine sand 0.05–0.1 mm, ballotini 0.55–0.7 mm.</small></div>
+<div class="row"><label for="cD">Orifice <output id="cDO"></output></label><input id="cD" type="range" min="0.3" max="12" step="0.1" value="2.8"></div>
+<div class="row"><label for="cfill">Fill <output id="cfillO"></output></label><input id="cfill" type="range" min="0.2" max="0.95" step="0.05" value="0.8"></div>
+<div class="row"><label for="crep">Angle of repose <output id="crepO"></output></label><input id="crep" type="range" min="18" max="40" step="1" value="25"><small>25° for glass ballotini (Mills), 30–35° for natural sand.</small></div>
+<div class="row"><label for="cspd">Playback speed <output id="cspdO"></output></label><input id="cspd" type="range" min="0" max="1" step="0.01" value="0.34"></div>
+</div>
+
+<div class="panel">
+<div class="sect">Layers and units</div>
+<div class="row"><label for="lay">Layer colours</label><select id="lay"><option value="mills">Black and white bands (Mills)</option><option value="sand">Sand tones</option><option value="none">Plain sand</option></select></div>
+<div class="row"><label for="lsp">Band spacing <output id="lspO"></output></label><input id="lsp" type="range" min="4" max="40" step="1" value="15"></div>
+<div class="row" id="realRow"><label for="dreal">Each grain represents <output id="drealO"></output></label><input id="dreal" type="range" min="0.05" max="3" step="0.05" value="0.55"><small>Sets the real size of the glass and converts simulated time to real time by Froude scaling (time ∝ √(length/g)).</small></div>
+</div>
+<details><summary>How this was checked</summary>
+<p class="note" id="about"></p>
+</details>
+</section>
+</main>
+<script id="engsrc">
+// Hourglass DEM engine (2D disks or 3D spheres), no DOM. Screen coordinates: y points down, neck at (CX,CY).
+// Contact law matches LAMMPS pair_style granular "hooke ... tangential linear_nohistory ... damping velocity limit_damping".
+// Integrator matches LAMMPS fix nve/sphere (velocity Verlet; damping uses the half-step velocity).
+// Dimensionless field b(x,t) = B/B0 at a point (screen px, y down, neck at CX,CY).
+// prof: 0 uniform, 1 linear gradient along the field axis (curl- and divergence-free), 2 magnet below the glass, 3 magnet beside the neck.
+// tmode: 0 constant, 1 AC sine, 2 on/off pulses, 3 rotating (in the x-y plane), 4 ramp up, 5 ramp down.
+function magField(Q,CX,CY,x,y,z,t,out){
+  var hx=Q.hx,hy=Q.hy,hz=Q.hz,tf=1,tm=Q.tmode|0,w=2*Math.PI*(Q.freq||0);
+  if(tm===1)tf=Math.sin(w*t);else if(tm===2)tf=((Q.freq||0)*t)%1<0.5?1:0;else if(tm===3){hx=Math.sin(w*t);hy=Math.cos(w*t);hz=0}
+  else if(tm===4)tf=Math.min(1,Math.max(0,t/(Q.Tramp||1)));else if(tm===5)tf=Math.min(1,Math.max(0,1-t/(Q.Tramp||1)));
+  var rx=x-CX,ry=y-CY,rz=z,pr=Q.prof|0,bx,by,bz;
+  if(pr===1){var u=rx*hx+ry*hy+rz*hz,vx=rx-u*hx,vy=ry-u*hy,vz=rz-u*hz,G=(Q.G||0)/Q.Lh,k=Q.dim===3?0.5*G:G;
+    bx=(1+G*u)*hx-k*vx;by=(1+G*u)*hy-k*vy;bz=(1+G*u)*hz-k*vz;}
+  else if(pr===2||pr===3){var mx=pr===2?0:1,my=pr===2?1:0,dx=x-Q.Mx,dy=y-Q.My,dz=z,r2=dx*dx+dy*dy+dz*dz,r=Math.sqrt(r2),nx=dx/r,ny=dy/r,nz=dz/r,mn=mx*nx+my*ny,c=Q.norm/(r2*r);
+    bx=c*(3*mn*nx-mx);by=c*(3*mn*ny-my);bz=c*(3*mn*nz);}
+  else if(pr===4){// radial gradient about the vertical axis through the neck: potential y + k(y^3/3 - y rho^2/2) (3D) or y + k(y^3 - 3x^2 y)/3 (2D);
+    // |b| = 1 on the axis at the neck and 1 + G at the bulb wall at neck height
+    var R=Q.Rw||125,G4=Q.G||0;if(Q.dim===3){var k3=-2*G4/(R*R);bx=-k3*rx*ry;bz=-k3*rz*ry;by=1+k3*(ry*ry-(rx*rx+rz*rz)/2)}else{var k2=-G4/(R*R);bx=-2*k2*rx*ry;by=1+k2*(ry*ry-rx*rx);bz=0}}
+  else{bx=hx;by=hy;bz=hz}
+  out[0]=tf*bx;out[1]=tf*by;out[2]=tf*bz;
+}
+// magnet placement and normalisation: |b| = 1 at the glass point nearest the magnet
+function magGeom(Q,CX,CY,H,neckHalf){Q.Rw=(Q.W||250)/2;if(Q.prof===2){Q.Mx=CX;Q.My=CY+H+Q.mdist*H;var a=Q.mdist*H;Q.norm=a*a*a/2}
+  else if(Q.prof===3){var a2=Q.mdist*H;Q.Mx=CX+neckHalf+a2;Q.My=CY;Q.norm=a2*a2*a2/2}}
+// Endless sand (periodic boundary in the flow direction): grains that have fallen deeper than `depth` below the neck are
+// put back at the top of the upper bulb. Spots are picked at random in a band under the top wall and must clear every grain
+// already in that band; each band grain is treated as a short vertical capsule (it may have fallen a little since the
+// positions were read), so stale positions on the GPU cannot cause overlaps. Returns [[i,x,y,z],...].
+function feedPlan(X,Y,Z,N,CX,CY,H,rm,hwAt,dim,depth,maxk){
+  var cand=[],i,lim=CY+depth;for(i=0;i<N;i++)if(Y[i]>lim)cand.push(i);if(!cand.length)return [];
+  var gap=2*rm+0.6,bandH=3*gap,s1=H-rm-0.8,s0=s1-bandH,yTop=CY-s1,yLow=CY-s0+gap+14,L=12,c=gap,hw=hwAt(s0)+rm+2,nc=Math.ceil(2*hw/c)+2,cols={};
+  function key(x,z){return Math.floor((x-CX+hw)/c)+nc*(dim===3?Math.floor((z+hw)/c):0)}
+  for(i=0;i<N;i++){if(Y[i]>yLow||Y[i]<yTop-gap)continue;var k=key(X[i],Z[i]);(cols[k]||(cols[k]=[])).push(X[i],Y[i],Z[i])}
+  function free(x,y,z){var bx=Math.floor((x-CX+hw)/c),bz=dim===3?Math.floor((z+hw)/c):0;
+    for(var dz=(dim===3?-1:0);dz<=(dim===3?1:0);dz++)for(var dx=-1;dx<=1;dx++){var a=cols[(bx+dx)+nc*(bz+dz)];if(!a)continue;
+      for(var q=0;q<a.length;q+=3){var ex=x-a[q],ez=dim===3?z-a[q+2]:0,cy=y<a[q+1]?a[q+1]:y>a[q+1]+L?a[q+1]+L:y,ey=y-cy;if(ex*ex+ey*ey+ez*ez<gap*gap)return false}}return true}
+  var out=[];for(var n=0;n<cand.length&&out.length<maxk;n++){
+    for(var tr=0;tr<8;tr++){var s=s1-Math.random()*bandH,w=Math.min(hwAt(s),hwAt(s+rm),hwAt(s-rm))-rm-0.6;if(w<=0)continue;
+      var x=(2*Math.random()-1)*w,z=0;if(dim===3){z=(2*Math.random()-1)*w;if(x*x+z*z>w*w)continue}
+      var px=CX+x,py=CY-s;if(!free(px,py,z))continue;var k2=key(px,z);(cols[k2]||(cols[k2]=[])).push(px,py,z);out.push([cand[n],px,py,z]);break}}
+  return out}
+function makeEngine(){
+  var E={};
+  var CX=200,CY=320,G0=900;
+  // ---------- glass profiles: top bulb as polyline [rho,s] from the neck rim to the axis at the cap ----------
+  function profile(shape,D,W,H){
+    var R=D/2,M=W/2,p=[],s,t,i,deg=Math.PI/180;
+    function push(r,ss){p.push([Math.max(r,0),ss])}
+    if(shape==="bottle"){push(R,0);push(M,0);push(M,H);}
+    else if(shape==="silo"){var h=(M-R)*Math.tan(34*deg);push(R,0);push(M,h);push(M,H);}
+    else if(shape==="cone"){var tn=Math.tan(14*deg),hc=(M-R)/tn;if(hc>H*0.92){hc=H*0.92;}
+      push(R,0);push(Math.min(M,R+hc*tn),hc);push(Math.min(M,R+hc*tn),H);}
+    else if(shape==="hourglass"){ // Mills-style: tapered neck (~12 deg) opening into a rounded bulb
+      var tn2=Math.tan(12*deg),s1=0.30*H,r1=R+s1*tn2;
+      for(i=0;i<=6;i++){s=s1*i/6;push(R+s*tn2,s);}
+      for(i=1;i<=24;i++){t=i/24;s=s1+t*(0.70*H-s1);var u=Math.sin(t*Math.PI/2);push(r1+(M-r1)*(1-Math.pow(1-u,1.6)),s);}
+      for(i=1;i<=12;i++){t=i/12;s=0.70*H+t*0.30*H;push(M*Math.sqrt(1-0.72*t*t),s);}
+    }
+    else{ // "classic": the original sine profile
+      for(s=0;s<=H+0.01;s+=3){t=s/H;var w=R+(M-R)*Math.sin(Math.min(t/.7,1)*Math.PI/2);if(t>.88){var uu=(t-.88)/.12;w*=1-.28*uu*uu}push(w,s);}
+    }
+    push(0,H);
+    return p;
+  }
+  E.profile=profile;
+  // ---------- state ----------
+  var dim=2,N=0,X,Y,Z,VX,VY,VZ,WX,WY,WZ,FX,FY,FZ,TX,TY,TZ,RAD,IM,II,S0,cid,order,cstart,ccount,tmp;
+  var P={prof:0,tmode:0,G:0,freq:1,Tramp:1,mdist:0.5,Lh:270,chie:3,Mx:0,My:0,norm:1,Bo:0,hx:0,hy:1,hz:0,rcm:2.5,mutual:0,mcap:3,mfrac:1,mseed:7,mur:0,side:0,hist:1,ktr:2/7,fill:1,maxN:40000,shape:"classic",D:20,W:250,H:270,r:3,poly:0.1,mu:0.4,muw:0.4,e:0.1,g:1,K0:370};
+  var seg={n:0},BS=2,bins=null,rmin=null,nb=0,gate=false;
+  var CHI,MX,MY,MZ,B0X,B0Y,B0Z,BDX,BDY,BDZ,mgx=1,mgy=1,mgz=1,mcell=1,mstart,mcount,morder,mocc,nmocc=0,MDEL,PF,KH=8,OID,HID,HX,HY,HZ,HT,WHX,WHY,WHZ,WHT,stamp=1,kt,kn,etan,etat,etanw,etatw,dt,mbar,rbar,rmax,cell,gx,gy,gz,ox,oy,oz,nsteps=0;
+  E.P=P;
+  function buildWalls(){
+    var p=profile(P.shape,P.D,P.W,P.H),n=p.length-1,i;
+    seg={n:n,ar:new Float64Array(n),as:new Float64Array(n),dr:new Float64Array(n),ds:new Float64Array(n),l2:new Float64Array(n),nr:new Float64Array(n),ns:new Float64Array(n),pts:p};
+    for(i=0;i<n;i++){var a=p[i],b=p[i+1],dr=b[0]-a[0],ds=b[1]-a[1],l=Math.sqrt(dr*dr+ds*ds)||1;
+      seg.ar[i]=a[0];seg.as[i]=a[1];seg.dr[i]=dr;seg.ds[i]=ds;seg.l2[i]=dr*dr+ds*ds||1;seg.nr[i]=-ds/l;seg.ns[i]=dr/l;}
+    var reach=(rmax||P.r*1.2)+1;nb=Math.ceil((P.H+reach+4)/BS)+1;bins=[];rmin=new Float64Array(nb);
+    for(var b=0;b<nb;b++){var lo=b*BS-reach,hi=(b+1)*BS+reach,L=[],mn=1e9;
+      for(i=0;i<n;i++){var s0=Math.min(seg.as[i],seg.as[i]+seg.ds[i]),s1=Math.max(seg.as[i],seg.as[i]+seg.ds[i]);
+        if(s1>=lo&&s0<=hi){L.push(i);
+          // smallest rho of this segment inside the band [lo,hi]
+          var r0=seg.ar[i],r1=seg.ar[i]+seg.dr[i];
+          if(seg.ds[i]===0)mn=Math.min(mn,r0,r1);else{var ta=(lo-seg.as[i])/seg.ds[i],tb=(hi-seg.as[i])/seg.ds[i];ta=Math.max(0,Math.min(1,ta));tb=Math.max(0,Math.min(1,tb));mn=Math.min(mn,r0+ta*seg.dr[i],r0+tb*seg.dr[i]);}}}
+      bins.push(Int32Array.from(L));rmin[b]=mn;}
+  }
+  E.halfWidthAt=function(s){var p=seg.pts,a=Math.abs(s);for(var i=0;i<p.length-1;i++){if(p[i+1][1]>=a&&p[i+1][1]>p[i][1]){var t=(a-p[i][1])/(p[i+1][1]-p[i][1]);return p[i][0]+t*(p[i+1][0]-p[i][0])}}return 0};
+  function setConsts(){
+    var e=Math.max(P.e,0.03),ln=Math.log(e),zeta=-ln/Math.sqrt(Math.PI*Math.PI+ln*ln),g=G0*Math.max(P.g,0.5);
+    rbar=P.r;mbar=dim===2?Math.pow(rbar/3,2):Math.pow(rbar/3.75,3);
+    // contacts must out-stiffen the magnetic pull (force Bo*mg at contact, gradient ~2Bo*mg/rbar): keep K >= 10*Bo so overlaps stay small
+    // with mutual induction moments (and forces, ~enh^2) grow; enh estimated from an infinite chain of point dipoles
+    E.enh=P.mutual>0?Math.min(P.mcap||3,1/Math.max(0.05,1-(P.chie||3)*1.202/(6*0.857))):1;
+    E.Keff=Math.max(P.K0,10*(P.Bo||0)*E.enh*E.enh);kn=E.Keff*mbar*g/rbar;
+    etan=2*zeta*Math.sqrt(kn*mbar*0.5);etat=0.7*Math.sqrt(kn*mbar);etanw=2*zeta*Math.sqrt(kn*mbar);etatw=Math.sqrt(kn*mbar);
+    var mmin=mbar*Math.pow(1-P.poly,dim);dt=0.2*Math.sqrt(mmin/kn);
+    kt=P.ktr*kn;E.kt=kt;E.kn=kn;E.etan=etan;E.etat=etat;E.etanw=etanw;E.etatw=etatw;E.dt=dt;E.mbar=mbar;
+  }
+  E.setConsts=setConsts;
+  function alloc(n){
+    X=new Float64Array(n);Y=new Float64Array(n);Z=new Float64Array(n);VX=new Float64Array(n);VY=new Float64Array(n);VZ=new Float64Array(n);
+    WX=new Float64Array(n);WY=new Float64Array(n);WZ=new Float64Array(n);FX=new Float64Array(n);FY=new Float64Array(n);FZ=new Float64Array(n);
+    TX=new Float64Array(n);TY=new Float64Array(n);TZ=new Float64Array(n);RAD=new Float64Array(n);IM=new Float64Array(n);II=new Float64Array(n);S0=new Float32Array(n);
+    CHI=new Float32Array(n);MX=new Float64Array(n);MY=new Float64Array(n);MZ=new Float64Array(n);B0X=new Float64Array(n);B0Y=new Float64Array(n);B0Z=new Float64Array(n);BDX=new Float64Array(n);BDY=new Float64Array(n);BDZ=new Float64Array(n);morder=new Int32Array(n);mocc=new Int32Array(n);
+    PF=new Float64Array(n);cid=new Int32Array(n);order=new Int32Array(n);tmp=new Float64Array(n);
+    KH=dim===2?8:16;OID=new Int32Array(n);HID=new Int32Array(n*KH).fill(-1);HX=new Float64Array(n*KH);HY=new Float64Array(n*KH);HZ=new Float64Array(n*KH);HT=new Int32Array(n*KH);
+    WHX=new Float64Array(n);WHY=new Float64Array(n);WHZ=new Float64Array(n);WHT=new Int32Array(n);for(var q=0;q<n;q++)OID[q]=q;
+  }
+  function grid(){
+    cell=2*rmax*1.0001;var halfW=P.W/2+12;ox=CX-halfW-cell;oy=CY-P.H-14-cell;oz=-halfW-cell;
+    gx=Math.ceil(2*halfW/cell)+3;gy=Math.ceil((2*P.H+28)/cell)+3;gz=dim===3?gx:1;
+    // half stencil as linear index offsets; the grid has a one-cell empty border so no bounds checks are needed
+    var st=dim===2?[[1,0,0],[-1,1,0],[0,1,0],[1,1,0]]:H3;DEL=new Int32Array(st.length);for(var q=0;q<st.length;q++)DEL[q]=st[q][0]+gx*(st[q][1]+gy*st[q][2]);
+    cstart=new Int32Array(gx*gy*gz+1);ccount=new Int32Array(gx*gy*gz);
+    mcell=Math.max(cell,P.rcm*2*rbar);mgx=Math.ceil(2*halfW/mcell)+3;mgy=Math.ceil((2*P.H+28)/mcell)+3;mgz=dim===3?mgx:1;
+    mstart=new Int32Array(mgx*mgy*mgz+1);mcount=new Int32Array(mgx*mgy*mgz);
+    var stm=dim===2?[[1,0,0],[-1,1,0],[0,1,0],[1,1,0]]:H3;MDEL=new Int32Array(stm.length);for(var q2=0;q2<stm.length;q2++)MDEL[q2]=stm[q2][0]+mgx*(stm[q2][1]+mgy*stm[q2][2]);
+  }
+  function setRad(i,r){var m=dim===2?Math.pow(r/3,2):Math.pow(r/3.75,3);RAD[i]=r;IM[i]=1/m;II[i]=1/((dim===2?0.5:0.4)*m*r*r);}
+  // rng (seedable) for reproducible fills
+  var seed=12345;function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
+  E.seed=function(s){seed=s>>>0||1};
+  // Fill the top bulb on a loose randomised lattice; radii uniform in r*(1+-poly). Gate closed, call settle() afterwards.
+  E.init=function(opt){
+    for(var k in opt)P[k]=opt[k];dim=P.dim||2;rmax=P.r*(1+P.poly);setConsts();buildWalls();
+    var want=Math.min(P.n||1e9,P.maxN),pts=[],sp=2.04*rmax,dy=sp*0.87,row=0,s,x,z;
+    var stop=Math.min(P.H-rmax-0.5,(P.fill||1)*P.H);for(s=rmax+0.6;s<stop&&pts.length<want;s+=dy,row++){
+      var w=Math.min(E.halfWidthAt(s-rmax),E.halfWidthAt(s),E.halfWidthAt(s+rmax))-rmax-0.4;if(w<=0)continue;
+      var off=(row%2)*sp/2;
+      if(dim===2){for(x=-w+off;x<=w&&pts.length<want;x+=sp)pts.push([x,s,0]);}
+      else{for(x=-w+off;x<=w;x+=sp)for(z=-w+((row>>1)%2)*sp/2;z<=w&&pts.length<want;z+=sp)if(x*x+z*z<=w*w)pts.push([x,s,z]);}
+    }
+    N=pts.length;alloc(N);
+    for(var i=0;i<N;i++){var r=P.r*(1+P.poly*(2*rnd()-1)),j=(sp-2*r)*0.45;
+      X[i]=CX+pts[i][0]+j*(2*rnd()-1);Y[i]=CY-pts[i][1]+0.3*j*(2*rnd()-1);Z[i]=dim===3?pts[i][2]+j*(2*rnd()-1):0;setRad(i,r);}
+    grid();E.setMagFrac(P.mfrac,P.mseed);gate=true;nsteps=0;E.N=N;E.t=0;
+    return N;
+  };
+  E.setGate=function(v){gate=v};
+  // which grains are ferromagnetic: a fixed random subset (by original id) of the requested fraction
+  E.setMagFrac=function(f,sd){P.mfrac=f;var s=(sd||7)>>>0;for(var i=0;i<N;i++){s=(s*1664525+1013904223)>>>0;var o=OID?OID[i]:i;var h=((o+1)*2654435761)>>>0;CHI[i]=((h^s)>>>0)/4294967296<f?1:0;}
+    if(f>=1)CHI.fill(1);if(f<=0)CHI.fill(0);};
+  E.chi=function(){return CHI};
+  E.settle=function(T){var g=gate;gate=true;var n=Math.ceil(T/dt);for(var k=0;k<n;k++)step();
+    for(var i=0;i<N;i++){S0[i]=CY-Y[i];VX[i]=VY[i]=VZ[i]=WX[i]=WY[i]=WZ[i]=0}E.clearHist();E.t=0;gate=g;};
+  // ---------- cell list (counting sort, rebuilt every step) + periodic memory reorder ----------
+  function cellOf(i){var cx=Math.floor((X[i]-ox)/cell),cy=Math.floor((Y[i]-oy)/cell),cz=dim===3?Math.floor((Z[i]-oz)/cell):0;
+    cx=cx<1?1:cx>gx-2?gx-2:cx;cy=cy<1?1:cy>gy-2?gy-2:cy;if(dim===3)cz=cz<1?1:cz>gz-2?gz-2:cz;return cx+gx*(cy+gy*cz)}
+  var occ=new Int32Array(1),nocc=0,DEL;
+  function bin(){var nc=gx*gy*gz,i;ccount.fill(0);if(occ.length<N)occ=new Int32Array(N);nocc=0;
+    for(i=0;i<N;i++){var c=cellOf(i);cid[i]=c;if(ccount[c]++===0)occ[nocc++]=c}
+    var a=0;for(i=0;i<nc;i++){cstart[i]=a;a+=ccount[i]}cstart[nc]=a;for(i=0;i<nc;i++)ccount[i]=cstart[i];
+    for(i=0;i<N;i++)order[ccount[cid[i]]++]=i;}
+  function reorder(){bin();var arrs=[X,Y,Z,VX,VY,VZ,WX,WY,WZ,RAD,IM,II,MX,MY,MZ],i,a;
+    for(a=0;a<arrs.length;a++){var A=arrs[a];for(i=0;i<N;i++)tmp[i]=A[order[i]];A.set(tmp)}
+    var t32=new Float32Array(N);for(i=0;i<N;i++)t32[i]=S0[order[i]];S0.set(t32);for(i=0;i<N;i++)t32[i]=CHI[order[i]];CHI.set(t32);
+    var ti=new Int32Array(N);for(i=0;i<N;i++)ti[i]=OID[order[i]];OID.set(ti);
+    var wa=[WHX,WHY,WHZ];for(a=0;a<3;a++){var A2=wa[a];for(i=0;i<N;i++)tmp[i]=A2[order[i]];A2.set(tmp)}
+    for(i=0;i<N;i++)ti[i]=WHT[order[i]];WHT.set(ti);
+    if(P.hist){var M=N*KH,hi=new Int32Array(M),ht=new Int32Array(M),hx=new Float64Array(M),hy=new Float64Array(M),hz=new Float64Array(M);
+      for(i=0;i<N;i++){var o=order[i]*KH,d=i*KH;for(var m=0;m<KH;m++){hi[d+m]=HID[o+m];ht[d+m]=HT[o+m];hx[d+m]=HX[o+m];hy[d+m]=HY[o+m];hz[d+m]=HZ[o+m]}}
+      HID=hi;HT=ht;HX=hx;HY=hy;HZ=hz;}}
+  // history slot of the contact (owner i, partner original id pj); -1 if no room
+  function slot(i,pj){var b=i*KH,f=-1;for(var m=0;m<KH;m++){var h=HID[b+m];if(h===pj)return b+m;if(h<0&&f<0)f=b+m}
+    if(f>=0){HID[f]=pj;HX[f]=HY[f]=HZ[f]=0}return f}
+  E.clearHist=function(){if(HID){HID.fill(-1);WHX.fill(0);WHY.fill(0);WHZ.fill(0);}};
+  // ---------- forces ----------
+  function pair2(i,j){
+    if(OID[i]>OID[j]){var tq=i;i=j;j=tq}
+    var dx=X[j]-X[i],dy=Y[j]-Y[i],ri=RAD[i],rj=RAD[j],rs=ri+rj,dd=dx*dx+dy*dy;if(dd>=rs*rs||dd===0)return;
+    var d=Math.sqrt(dd),nx=dx/d,ny=dy/d,rvx=VX[j]-VX[i],rvy=VY[j]-VY[i],vn=rvx*nx+rvy*ny,Fn=kn*(rs-d)-etan*vn;if(Fn<=0)return;
+    var vt=-rvx*ny+rvy*nx-(ri*WZ[i]+rj*WZ[j]),ft=etat*vt,cap=P.mu*Fn;
+    if(P.hist){var k=slot(i,OID[j]);if(k>=0){HT[k]=stamp;var xi=HX[k]+vt*dt;ft=kt*xi+etat*vt;if(ft>cap||ft<-cap){ft=ft>0?cap:-cap;xi=(ft-etat*vt)/kt}HX[k]=xi;}}
+    ft=ft>cap?cap:ft<-cap?-cap:ft;
+    var fx=-Fn*nx-ft*ny,fy=-Fn*ny+ft*nx;FX[i]+=fx;FY[i]+=fy;FX[j]-=fx;FY[j]-=fy;TZ[i]+=ri*ft;TZ[j]+=rj*ft;PF[i]+=Fn;PF[j]+=Fn;
+    if(P.mur>0){var re=ri*rj/rs,wr=WZ[i]-WZ[j],mr=P.mur*re*Fn,mv=etat*re*re*wr;mv=mv>mr?mr:mv<-mr?-mr:mv;TZ[i]-=mv;TZ[j]+=mv;}
+  }
+  function pair3(i,j){
+    if(OID[i]>OID[j]){var tq=i;i=j;j=tq}
+    var dx=X[j]-X[i],dy=Y[j]-Y[i],dz=Z[j]-Z[i],ri=RAD[i],rj=RAD[j],rs=ri+rj,dd=dx*dx+dy*dy+dz*dz;if(dd>=rs*rs||dd===0)return;
+    var d=Math.sqrt(dd),nx=dx/d,ny=dy/d,nz=dz/d,rx=VX[j]-VX[i],ry=VY[j]-VY[i],rz=VZ[j]-VZ[i],vn=rx*nx+ry*ny+rz*nz,Fn=kn*(rs-d)-etan*vn;if(Fn<=0)return;
+    // relative velocity of the contact point: rv - (ri*wi + rj*wj) x n
+    var sx=ri*WX[i]+rj*WX[j],sy=ri*WY[i]+rj*WY[j],sz=ri*WZ[i]+rj*WZ[j];
+    var ux=rx-(sy*nz-sz*ny),uy=ry-(sz*nx-sx*nz),uz=rz-(sx*ny-sy*nx),un=ux*nx+uy*ny+uz*nz;ux-=un*nx;uy-=un*ny;uz-=un*nz;
+    var tx,ty,tz,cap3=P.mu*Fn,k3=P.hist?slot(i,OID[j]):-1;
+    if(k3>=0){HT[k3]=stamp;var hx=HX[k3],hy=HY[k3],hz=HZ[k3],hn=hx*nx+hy*ny+hz*nz,h0=Math.sqrt(hx*hx+hy*hy+hz*hz);hx-=hn*nx;hy-=hn*ny;hz-=hn*nz;
+      var h1=Math.sqrt(hx*hx+hy*hy+hz*hz);if(h1>1e-12){var sr=h0/h1;hx*=sr;hy*=sr;hz*=sr}
+      hx+=ux*dt;hy+=uy*dt;hz+=uz*dt;tx=kt*hx+etat*ux;ty=kt*hy+etat*uy;tz=kt*hz+etat*uz;var fm=Math.sqrt(tx*tx+ty*ty+tz*tz);
+      if(fm>cap3){var f2=cap3/fm;tx*=f2;ty*=f2;tz*=f2;hx=(tx-etat*ux)/kt;hy=(ty-etat*uy)/kt;hz=(tz-etat*uz)/kt}HX[k3]=hx;HY[k3]=hy;HZ[k3]=hz;}
+    else{var um=Math.sqrt(ux*ux+uy*uy+uz*uz),sc=etat;if(um*sc>cap3)sc=cap3/um;tx=sc*ux;ty=sc*uy;tz=sc*uz}
+    var fx=-Fn*nx+tx,fy=-Fn*ny+ty,fz=-Fn*nz+tz;
+    FX[i]+=fx;FY[i]+=fy;FZ[i]+=fz;FX[j]-=fx;FY[j]-=fy;FZ[j]-=fz;
+    var cx=ny*tz-nz*ty,cy=nz*tx-nx*tz,cz=nx*ty-ny*tx;TX[i]+=ri*cx;TY[i]+=ri*cy;TZ[i]+=ri*cz;TX[j]+=rj*cx;TY[j]+=rj*cy;TZ[j]+=rj*cz;
+  }
+  // wall contact with unit normal n (pointing from wall into the grain) and overlap dl
+  function wallC(i,nx,ny,nz,dl){
+    var r=RAD[i],vn=VX[i]*nx+VY[i]*ny+VZ[i]*nz,Fn=kn*dl-etanw*vn;if(Fn<=0)return;
+    if(dim===2){var tx=-ny,ty=nx,vt=VX[i]*tx+VY[i]*ty-r*WZ[i],ft=etatw*vt,cap=P.muw*Fn;
+      if(P.hist){WHT[i]=stamp;var xi=WHX[i]+vt*dt;ft=kt*xi+etatw*vt;if(ft>cap||ft<-cap){ft=ft>0?cap:-cap;xi=(ft-etatw*vt)/kt}WHX[i]=xi;}
+      ft=ft>cap?cap:ft<-cap?-cap:ft;
+      FX[i]+=Fn*nx-ft*tx;FY[i]+=Fn*ny-ft*ty;TZ[i]+=r*ft;PF[i]+=Fn;
+      if(P.mur>0){var mr2=P.mur*r*Fn,mv2=etatw*r*r*WZ[i];mv2=mv2>mr2?mr2:mv2<-mr2?-mr2:mv2;TZ[i]-=mv2;}return;}
+    var ux=VX[i]-r*(WY[i]*nz-WZ[i]*ny),uy=VY[i]-r*(WZ[i]*nx-WX[i]*nz),uz=VZ[i]-r*(WX[i]*ny-WY[i]*nx),un=ux*nx+uy*ny+uz*nz;ux-=un*nx;uy-=un*ny;uz-=un*nz;
+    var t1,t2,t3,capw=P.muw*Fn;
+    if(P.hist){WHT[i]=stamp;var hx=WHX[i],hy=WHY[i],hz=WHZ[i],hn=hx*nx+hy*ny+hz*nz,h0=Math.sqrt(hx*hx+hy*hy+hz*hz);hx-=hn*nx;hy-=hn*ny;hz-=hn*nz;
+      var h1=Math.sqrt(hx*hx+hy*hy+hz*hz);if(h1>1e-12){var sr=h0/h1;hx*=sr;hy*=sr;hz*=sr}
+      hx+=ux*dt;hy+=uy*dt;hz+=uz*dt;t1=-(kt*hx+etatw*ux);t2=-(kt*hy+etatw*uy);t3=-(kt*hz+etatw*uz);var fm=Math.sqrt(t1*t1+t2*t2+t3*t3);
+      if(fm>capw){var f2=capw/fm;t1*=f2;t2*=f2;t3*=f2;hx=(-t1-etatw*ux)/kt;hy=(-t2-etatw*uy)/kt;hz=(-t3-etatw*uz)/kt}WHX[i]=hx;WHY[i]=hy;WHZ[i]=hz;}
+    else{var um=Math.sqrt(ux*ux+uy*uy+uz*uz),sc=etatw;if(um*sc>capw)sc=capw/um;t1=-sc*ux;t2=-sc*uy;t3=-sc*uz}
+    FX[i]+=Fn*nx+t1;FY[i]+=Fn*ny+t2;FZ[i]+=Fn*nz+t3;
+    TX[i]-=r*(ny*t3-nz*t2);TY[i]-=r*(nz*t1-nx*t3);TZ[i]-=r*(nx*t2-ny*t1);
+  }
+  function walls(i){
+    var r=RAD[i],dx=X[i]-CX,dz=dim===3?Z[i]:0,rho=dim===3?Math.sqrt(dx*dx+dz*dz):Math.abs(dx),s=CY-Y[i],sm=s<0?-s:s,b=Math.floor(sm/BS);
+    // closed gate: plane s=0 across the neck (top bulb side only)
+    if(gate&&s>-r&&s<r&&rho<P.D/2+r){if(s>=0)wallC(i,0,-1,0,r-s);}
+    if(b>=nb)b=nb-1;if(rho+r<rmin[b])return;
+    var L=bins[b],best=1e18,br=0,bs=0,bk=-1;
+    for(var q=0;q<L.length;q++){var k=L[q],tt=((rho-seg.ar[k])*seg.dr[k]+(sm-seg.as[k])*seg.ds[k])/seg.l2[k];tt=tt<0?0:tt>1?1:tt;
+      var cr=seg.ar[k]+tt*seg.dr[k],cs=seg.as[k]+tt*seg.ds[k],d2=(rho-cr)*(rho-cr)+(sm-cs)*(sm-cs);
+      if(d2<best-1e-12||(Math.abs(d2-best)<=1e-12&&Math.abs((rho-cr)*seg.nr[k]+(sm-cs)*seg.ns[k])>Math.abs((rho-br)*seg.nr[bk]+(sm-bs)*seg.ns[bk]))){best=d2;br=cr;bs=cs;bk=k}}
+    if(bk<0||best>=r*r&&((rho-br)*seg.nr[bk]+(sm-bs)*seg.ns[bk])>=0)return;
+    var dist=Math.sqrt(best),inside=((rho-br)*seg.nr[bk]+(sm-bs)*seg.ns[bk])>=0,nr,ns;
+    if(dist<1e-9){nr=seg.nr[bk];ns=seg.ns[bk]}else{nr=(rho-br)/dist;ns=(sm-bs)/dist;if(!inside){nr=-nr;ns=-ns}}
+    var dl=inside?r-dist:r+dist;if(s<0)ns=-ns;
+    var cxs=rho>1e-9?dx/rho:(dim===2?(dx<0?-1:1):1),czs=rho>1e-9?dz/rho:0;
+    wallC(i,nr*cxs,-ns,nr*czs,dl);
+  }
+  function forces(){
+    var i,a,b2,c,nc=gx*gy*gz;FX.fill(0);PF.fill(0);FY.fill(0);FZ.fill(0);TZ.fill(0);if(dim===3){TX.fill(0);TY.fill(0)}
+    bin();
+    var pf=dim===2?pair2:pair3,nd=DEL.length;
+    for(var oc=0;oc<nocc;oc++){c=occ[oc];var s0=cstart[c],s1=cstart[c+1];
+      for(a=s0;a<s1;a++){i=order[a];for(b2=a+1;b2<s1;b2++)pf(i,order[b2]);}
+      for(var o=0;o<nd;o++){var c2=c+DEL[o],t0=cstart[c2],t1=cstart[c2+1];if(t0===t1)continue;
+        for(a=s0;a<s1;a++){i=order[a];for(b2=t0;b2<t1;b2++)pf(i,order[b2]);}}
+    }
+    for(i=0;i<N;i++)walls(i);
+    if(P.Bo>0)magnetic();
+    if(P.side>0&&dim===2){var v0=0.02*Math.sqrt(G0*P.g*2*rbar);for(i=0;i<N;i++){var vm=Math.sqrt(VX[i]*VX[i]+VY[i]*VY[i]);if(vm===0)continue;
+      var fs=P.side*0.5*PF[i]*0.5/(vm+v0);FX[i]-=fs*VX[i];FY[i]-=fs*VY[i];}}
+    if(P.hist){var M=N*KH;for(i=0;i<M;i++)if(HID[i]>=0&&HT[i]!==stamp)HID[i]=-1;
+      for(i=0;i<N;i++)if(WHT[i]!==stamp){WHX[i]=WHY[i]=WHZ[i]=0}stamp++;}
+  }
+  // ---------- induced dipoles (fixed-dipole method) ----------
+  // moment of grain i in units of a mean grain at the reference field: mu_i = chi_i (r_i/rbar)^3 b(x_i,t)
+  E.field=function(x,y,z,t,out){magField(P,CX,CY,x,y,z,t,out)};
+  function fieldSetup(){P.dim=dim;P.Lh=P.H;magGeom(P,CX,CY,P.H,P.D/2)}
+  var fe=[0,0,0];function bsq(x,y,z){magField(P,CX,CY,x,y,z,E.t,fe);return fe[0]*fe[0]+fe[1]*fe[1]+fe[2]*fe[2]}
+  var fb=[0,0,0];
+  function magnetic(){
+    fieldSetup();
+    var i,a,b2,c,nc=mgx*mgy*mgz,Fm=P.Bo*mbar*G0*P.g,d4=Math.pow(2*rbar,4),rc=P.rcm*2*rbar,rc2=rc*rc;
+    // gradient force F = (V chi_eff/2mu0) grad|B|^2  ->  m g * (4 Bo d/chi_eff) * grad|b|^2 / 2   (lengths in px)
+    var mut=P.mutual>0;
+    if(P.prof>0&&!mut){var Kg=4*P.Bo*2*rbar/P.chie*G0*P.g,e=0.5;
+      for(i=0;i<N;i++){if(CHI[i]<=0)continue;var m=1/IM[i],x=X[i],y=Y[i],z=Z[i],f=CHI[i]*m*Kg*0.5/(2*e);
+        FX[i]+=f*(bsq(x+e,y,z)-bsq(x-e,y,z));FY[i]+=f*(bsq(x,y+e,z)-bsq(x,y-e,z));if(dim===3)FZ[i]+=f*(bsq(x,y,z+e)-bsq(x,y,z-e));}}
+    if(mut){for(i=0;i<N;i++){if(CHI[i]>0){E.field(X[i],Y[i],Z[i],E.t,fb);B0X[i]=fb[0];B0Y[i]=fb[1];B0Z[i]=fb[2]}else{B0X[i]=B0Y[i]=B0Z[i]=0;MX[i]=MY[i]=MZ[i]=0}BDX[i]=BDY[i]=BDZ[i]=0}}
+    else for(i=0;i<N;i++){if(CHI[i]>0){E.field(X[i],Y[i],Z[i],E.t,fb);var v=CHI[i]*Math.pow(RAD[i]/rbar,3);MX[i]=v*fb[0];MY[i]=v*fb[1];MZ[i]=v*fb[2];}else{MX[i]=MY[i]=MZ[i]=0}}
+    mcount.fill(0);nmocc=0;
+    for(i=0;i<N;i++){if(CHI[i]<=0){cid[i]=-1;continue}var cx=Math.floor((X[i]-ox)/mcell),cy=Math.floor((Y[i]-oy)/mcell),cz=dim===3?Math.floor((Z[i]-oz)/mcell):0;
+      cx=cx<1?1:cx>mgx-2?mgx-2:cx;cy=cy<1?1:cy>mgy-2?mgy-2:cy;if(dim===3)cz=cz<1?1:cz>mgz-2?mgz-2:cz;c=cx+mgx*(cy+mgy*cz);cid[i]=c;if(mcount[c]++===0)mocc[nmocc++]=c}
+    a=0;for(i=0;i<nc;i++){mstart[i]=a;a+=mcount[i]}mstart[nc]=a;for(i=0;i<nc;i++)mcount[i]=mstart[i];
+    for(i=0;i<N;i++)if(cid[i]>=0)morder[mcount[cid[i]]++]=i;
+    var nd=MDEL.length,oc,o,s0,s1,c2,t0,t1;
+    if(mut){
+      // mutual induction (one Jacobi sweep per step, warm-started from last step's moments):
+      // b_i = b0(x_i) + sum_j chi_eff rbar^3/(3 r^3) [3(M_j.n)n - M_j],  M_i = chi_i (r_i/rbar)^3 b_i
+      var ca=P.chie*rbar*rbar*rbar/3;
+      for(oc=0;oc<nmocc;oc++){c=mocc[oc];s0=mstart[c];s1=mstart[c+1];
+        for(a=s0;a<s1;a++){i=morder[a];for(b2=a+1;b2<s1;b2++)dfield(i,morder[b2],ca,rc2);}
+        for(o=0;o<nd;o++){c2=c+MDEL[o];t0=mstart[c2];t1=mstart[c2+1];if(t0===t1)continue;
+          for(a=s0;a<s1;a++){i=morder[a];for(b2=t0;b2<t1;b2++)dfield(i,morder[b2],ca,rc2);}}}
+      var cap=P.mcap||3;E.mutStat=[0,0];
+      for(i=0;i<N;i++){if(CHI[i]<=0)continue;var b0=Math.sqrt(B0X[i]*B0X[i]+B0Y[i]*B0Y[i]+B0Z[i]*B0Z[i]),bd=Math.sqrt(BDX[i]*BDX[i]+BDY[i]*BDY[i]+BDZ[i]*BDZ[i]),sc=1;
+        if(bd>cap*b0)sc=cap*b0/bd;var bx=B0X[i]+sc*BDX[i],by=B0Y[i]+sc*BDY[i],bz=B0Z[i]+sc*BDZ[i],v2=CHI[i]*Math.pow(RAD[i]/rbar,3);
+        MX[i]=0.5*(MX[i]+v2*bx);MY[i]=0.5*(MY[i]+v2*by);MZ[i]=0.5*(MZ[i]+v2*bz);bx=MX[i]/v2;by=MY[i]/v2;bz=MZ[i]/v2;if(b0>0){E.mutStat[0]+=Math.sqrt(bx*bx+by*by+bz*bz)/b0;E.mutStat[1]++}
+        if(P.prof>0){var Kg2=4*P.Bo*2*rbar/P.chie*G0*P.g,e2=0.5,f2=CHI[i]*(1/IM[i])*Kg2/(2*e2),xx=X[i],yy=Y[i],zz=Z[i],gp=[0,0,0],gm=[0,0,0];
+          E.field(xx+e2,yy,zz,E.t,gp);E.field(xx-e2,yy,zz,E.t,gm);FX[i]+=f2*(bx*(gp[0]-gm[0])+by*(gp[1]-gm[1])+bz*(gp[2]-gm[2]));
+          E.field(xx,yy+e2,zz,E.t,gp);E.field(xx,yy-e2,zz,E.t,gm);FY[i]+=f2*(bx*(gp[0]-gm[0])+by*(gp[1]-gm[1])+bz*(gp[2]-gm[2]));
+          if(dim===3){E.field(xx,yy,zz+e2,E.t,gp);E.field(xx,yy,zz-e2,E.t,gm);FZ[i]+=f2*(bx*(gp[0]-gm[0])+by*(gp[1]-gm[1])+bz*(gp[2]-gm[2]))}}}
+    }
+    for(oc=0;oc<nmocc;oc++){c=mocc[oc];s0=mstart[c];s1=mstart[c+1];
+      for(a=s0;a<s1;a++){i=morder[a];for(b2=a+1;b2<s1;b2++)mpair(i,morder[b2],Fm,d4,rc2);}
+      for(o=0;o<nd;o++){c2=c+MDEL[o];t0=mstart[c2];t1=mstart[c2+1];if(t0===t1)continue;
+        for(a=s0;a<s1;a++){i=morder[a];for(b2=t0;b2<t1;b2++)mpair(i,morder[b2],Fm,d4,rc2);}}}
+  }
+  // dipole field of j at i and of i at j (previous-step moments), softened like the force
+  function dfield(i,j,ca,rc2){
+    var dx=X[i]-X[j],dy=Y[i]-Y[j],dz=Z[i]-Z[j],dd=dx*dx+dy*dy+dz*dz;if(dd>=rc2||dd===0)return;
+    var r=Math.sqrt(dd),nx=dx/r,ny=dy/r,nz=dz/r,rmin=0.95*(RAD[i]+RAD[j]),re=r<rmin?rmin:r,k=ca/(re*re*re);
+    var a=3*(MX[j]*nx+MY[j]*ny+MZ[j]*nz),b=3*(MX[i]*nx+MY[i]*ny+MZ[i]*nz);
+    BDX[i]+=k*(a*nx-MX[j]);BDY[i]+=k*(a*ny-MY[j]);BDZ[i]+=k*(a*nz-MZ[j]);
+    BDX[j]+=k*(b*nx-MX[i]);BDY[j]+=k*(b*ny-MY[i]);BDZ[j]+=k*(b*nz-MZ[i]);
+  }
+  // dipole-dipole force on i from j: F = Fm/2 (d/r)^4 [ (mi.n)mj + (mj.n)mi + (mi.mj)n - 5(mi.n)(mj.n)n ], n from j to i
+  function mpair(i,j,Fm,d4,rc2){
+    var dx=X[i]-X[j],dy=Y[i]-Y[j],dz=Z[i]-Z[j],dd=dx*dx+dy*dy+dz*dz;if(dd>=rc2||dd===0)return;
+    var r=Math.sqrt(dd),nx=dx/r,ny=dy/r,nz=dz/r,rmin=0.95*(RAD[i]+RAD[j]),re=r<rmin?rmin:r;
+    var mi=MX[i]*nx+MY[i]*ny+MZ[i]*nz,mj=MX[j]*nx+MY[j]*ny+MZ[j]*nz,mm=MX[i]*MX[j]+MY[i]*MY[j]+MZ[i]*MZ[j],k=0.5*Fm*d4/(re*re*re*re),q=mm-5*mi*mj;
+    var fx=k*(mi*MX[j]+mj*MX[i]+q*nx),fy=k*(mi*MY[j]+mj*MY[i]+q*ny),fz=k*(mi*MZ[j]+mj*MZ[i]+q*nz);
+    FX[i]+=fx;FY[i]+=fy;FX[j]-=fx;FY[j]-=fy;if(dim===3){FZ[i]+=fz;FZ[j]-=fz}
+  }
+  var H3=[];(function(){for(var dz=-1;dz<=1;dz++)for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++){var k=dx+3*(dy+3*dz);if(k>0)H3.push([dx,dy,dz])}})();
+  // ---------- velocity Verlet ----------
+  var first=true;
+  function step(){
+    var h=dt,hh=0.5*dt,g=G0*P.g,i;
+    if(first){forces();first=false}
+    for(i=0;i<N;i++){var im=IM[i];VX[i]+=hh*FX[i]*im;VY[i]+=hh*(FY[i]*im+g);WZ[i]+=hh*TZ[i]*II[i];
+      if(dim===3){VZ[i]+=hh*FZ[i]*im;WX[i]+=hh*TX[i]*II[i];WY[i]+=hh*TY[i]*II[i];Z[i]+=h*VZ[i]}
+      X[i]+=h*VX[i];Y[i]+=h*VY[i];}
+    if(++nsteps%40===0){reorder();}
+    forces();
+    for(i=0;i<N;i++){var im2=IM[i];VX[i]+=hh*FX[i]*im2;VY[i]+=hh*(FY[i]*im2+g);WZ[i]+=hh*TZ[i]*II[i];
+      if(dim===3){VZ[i]+=hh*FZ[i]*im2;WX[i]+=hh*TX[i]*II[i];WY[i]+=hh*TY[i]*II[i]}}
+    E.t+=h;
+  }
+  E.step=step;
+  E.run=function(T){var n=Math.round(T/dt);for(var k=0;k<n;k++)step();};
+  // move grains (current index i) to new positions at rest, falling at v0; clears their contact histories
+  E.place=function(L,v0){for(var q=0;q<L.length;q++){var i=L[q][0];X[i]=L[q][1];Y[i]=L[q][2];Z[i]=dim===3?L[q][3]:0;VX[i]=VZ[i]=WX[i]=WY[i]=WZ[i]=0;VY[i]=v0||0;
+      FX[i]=FY[i]=FZ[i]=TX[i]=TY[i]=TZ[i]=0;WHX[i]=WHY[i]=WHZ[i]=0;for(var m=0;m<KH;m++)HID[i*KH+m]=-1}};
+  E.feed=function(depth,maxk,v0){var L=feedPlan(X,Y,Z,N,CX,CY,P.H,rmax,E.halfWidthAt,dim,depth,maxk);E.place(L,v0);return L.length};
+  E.countBelow=function(){var c=0;for(var i=0;i<N;i++)if(Y[i]>CY)c++;return c};
+  E.live=function(o){for(var k in o)P[k]=o[k];var old=dt;setConsts();dt=old<dt?old:dt;if(o.D!=null||o.shape)buildWalls();first=true};
+  E.flip=function(){for(var i=0;i<N;i++){X[i]=2*CX-X[i];Y[i]=2*CY-Y[i];Z[i]=-Z[i];VX[i]=VY[i]=VZ[i]=WX[i]=WY[i]=WZ[i]=0;S0[i]=-S0[i]}E.clearHist();first=true;E.t=0};
+  E.arrays=function(){return {X:X,Y:Y,Z:Z,VX:VX,VY:VY,VZ:VZ,RAD:RAD,S0:S0,N:N,OID:OID,CHI:CHI}};E.forcesNow=function(){forces();return {FX:FX,FY:FY,FZ:FZ}};E.fieldAt=function(x,y,z){fieldSetup();var o=[0,0,0];magField(P,CX,CY,x,y,z,E.t,o);return o};
+  E.CX=CX;E.CY=CY;E.dimOf=function(){return dim};
+  E.setState=function(L){for(var i=0;i<L.length&&i<N;i++){X[i]=L[i][0];Y[i]=L[i][1];Z[i]=L[i][2];VX[i]=L[i][3];VY[i]=L[i][4];VZ[i]=L[i][5];WX[i]=WY[i]=WZ[i]=0}E.clearHist();first=true;E.t=0};
+  E.vel=function(){return {VX:VX,VY:VY,VZ:VZ,WX:WX,WY:WY,WZ:WZ}};
+  E.wallData=function(){return {seg:seg,bins:bins,rmin:rmin,nb:nb,BS:BS}};
+  E.gridInfo=function(){return {cell:cell,ox:ox,oy:oy,oz:oz,gx:gx,gy:gy,gz:gz,rmax:rmax}};
+  E.gateOn=function(){return gate};E.consts=function(){return {kn:kn,kt:kt,etan:etan,etat:etat,etanw:etanw,etatw:etatw,dt:dt,mbar:mbar,rbar:rbar}};
+  return E;
+}
+if(typeof module!=="undefined")module.exports={makeEngine:makeEngine,feedPlan:feedPlan};
+
+</script>
+<script id="gpusrc">
+// WebGPU version of the hourglass DEM. Same contact law, walls and leapfrog/velocity-Verlet integration as engine.js.
+// Each GPU thread owns one grain and sums every force acting on it (no atomics on forces); tangential-spring history
+// is kept per grain per partner in ping-pong buffers. Geometry and the initial fill come from the CPU engine.
+function makeGPUEngine(device){
+  var ncm=1,G={},cpu=makeEngine(),N=0,dim=2,KH=8,CAP=8,nc=0,P=cpu.P,t=0,dt=0,gate=true,nsteps=0;
+  var CHI,mmBuf,mcBuf,bodyBuf,cellBuf,histA,histB,geomBuf,prmBuf,outBuf,readBuf,pipes={},bgA,bgB,ping=0,geomInfo,S0,RAD,X,Y,Z,SP;
+  var WG=64;
+  var shader=`
+struct Prm{N:u32,dim:u32,KH:u32,CAP:u32,gx:u32,gy:u32,gz:u32,nb:u32,
+ hist:u32,gate:u32,segOff:u32,binOff:u32,rminOff:u32,listOff:u32,pad0:u32,pad1:u32,
+ dt:f32,g:f32,kn:f32,kt:f32,etan:f32,etat:f32,etanw:f32,etatw:f32,
+ mu:f32,muw:f32,ox:f32,oy:f32,oz:f32,cell:f32,CX:f32,CY:f32,
+ Dh:f32,BS:f32,pad2:f32,pad3:f32,
+ Fm:f32,hx:f32,hy:f32,hz:f32,rc:f32,d4:f32,rbar:f32,mcell:f32,
+ mgx:u32,mgy:u32,mgz:u32,mCAP:u32,t:f32,Kg:f32,Gr:f32,Lh:f32,
+ prof:u32,tmode:u32,tIdx:u32,dim3:u32,Mx:f32,My:f32,Mz:f32,norm:f32,freq:f32,Tramp:f32,pad7:f32,pad8:f32,pad9:f32,pad10:f32,pad11:f32,pad12:f32};
+@group(0) @binding(0) var<uniform> p:Prm;
+@group(0) @binding(1) var<storage,read_write> B:array<vec4<f32>>;
+@group(0) @binding(2) var<storage,read_write> C:array<atomic<u32>>;
+@group(0) @binding(3) var<storage,read> HR:array<vec4<f32>>;
+@group(0) @binding(4) var<storage,read_write> HW:array<vec4<f32>>;
+@group(0) @binding(5) var<storage,read> GM:array<f32>;
+@group(0) @binding(6) var<storage,read_write> OUT:array<vec4<f32>>;
+@group(0) @binding(7) var<storage,read_write> MC:array<atomic<u32>>;
+@group(0) @binding(8) var<storage,read_write> MM:array<vec4<f32>>;
+fn mcellOf(x:vec3<f32>)->vec3<i32>{
+  var c=vec3<i32>(floor((x-vec3<f32>(p.ox,p.oy,p.oz))/p.mcell));
+  c.x=clamp(c.x,1,i32(p.mgx)-2);c.y=clamp(c.y,1,i32(p.mgy)-2);
+  if(p.dim==3u){c.z=clamp(c.z,1,i32(p.mgz)-2);}else{c.z=0;}
+  return c;}
+fn mcid(c:vec3<i32>)->u32{return u32(c.x)+p.mgx*(u32(c.y)+p.mgy*u32(c.z));}
+// dimensionless field b = B/B0 (same presets as magField in engine.js); time from a per-step counter
+fn simTime()->f32{return p.t+f32(atomicLoad(&MC[p.tIdx]))*p.dt;}
+fn fieldAt(x:vec3<f32>)->vec3<f32>{
+  let t=simTime();var h=vec3<f32>(p.hx,p.hy,p.hz);var tf=1.0;let w=6.2831853*p.freq;
+  if(p.tmode==1u){tf=sin(w*t);}else if(p.tmode==2u){tf=select(0.0,1.0,fract(p.freq*t)<0.5);}
+  else if(p.tmode==3u){h=vec3<f32>(sin(w*t),cos(w*t),0.0);}
+  else if(p.tmode==4u){tf=clamp(t/p.Tramp,0.0,1.0);}else if(p.tmode==5u){tf=clamp(1.0-t/p.Tramp,0.0,1.0);}
+  let r=x-vec3<f32>(p.CX,p.CY,0.0);var b=h;
+  if(p.prof==1u){let u=dot(r,h);let v=r-u*h;let G=p.Gr/p.Lh;let k=select(G,0.5*G,p.dim==3u);b=(1.0+G*u)*h-k*v;}
+  else if(p.prof==2u||p.prof==3u){let m=select(vec3<f32>(0.0,1.0,0.0),vec3<f32>(1.0,0.0,0.0),p.prof==3u);let d=x-vec3<f32>(p.Mx,p.My,0.0);let r2=dot(d,d);let rr=sqrt(r2);let n=d/rr;
+    b=p.norm/(r2*rr)*(3.0*dot(m,n)*n-m);}
+  else if(p.prof==4u){let R=p.pad7;if(p.dim==3u){let k=-2.0*p.Gr/(R*R);b=vec3<f32>(-k*r.x*r.y,1.0+k*(r.y*r.y-(r.x*r.x+r.z*r.z)*0.5),-k*r.z*r.y);}
+    else{let k=-p.Gr/(R*R);b=vec3<f32>(-2.0*k*r.x*r.y,1.0+k*(r.y*r.y-r.x*r.x),0.0);}}
+  return tf*b;}
+fn bsq(x:vec3<f32>)->f32{let b=fieldAt(x);return dot(b,b);}
+fn cellOf(x:vec3<f32>)->vec3<i32>{
+  var c=vec3<i32>(floor((x-vec3<f32>(p.ox,p.oy,p.oz))/p.cell));
+  c.x=clamp(c.x,1,i32(p.gx)-2);c.y=clamp(c.y,1,i32(p.gy)-2);
+  if(p.dim==3u){c.z=clamp(c.z,1,i32(p.gz)-2);}else{c.z=0;}
+  return c;}
+fn cid(c:vec3<i32>)->u32{return u32(c.x)+p.gx*(u32(c.y)+p.gy*u32(c.z));}
+@compute @workgroup_size(${WG}) fn clearCells(@builtin(global_invocation_id) id:vec3<u32>){
+  let c=id.x;if(c<p.gx*p.gy*p.gz){atomicStore(&C[c*(p.CAP+1u)],0u);}
+  if(c<p.mgx*p.mgy*p.mgz){atomicStore(&MC[c*(p.mCAP+1u)],0u);}}
+// leapfrog kick (finishes the previous step and starts this one) + drift + bin into cells
+@compute @workgroup_size(${WG}) fn integrate(@builtin(global_invocation_id) id:vec3<u32>){
+  let i=id.x;if(i>=p.N){return;}let b=i*6u;
+  var x=B[b];var v=B[b+1u];var w=B[b+2u];let f=B[b+3u];let tq=B[b+4u];
+  v=vec4<f32>(v.xyz+p.dt*(f.xyz*v.w+vec3<f32>(0.0,p.g,0.0)),v.w);
+  w=vec4<f32>(w.xyz+p.dt*tq.xyz*w.w,w.w);
+  if(p.dim==2u){v.z=0.0;w.x=0.0;w.y=0.0;}
+  x=vec4<f32>(x.xyz+p.dt*v.xyz,x.w);
+  B[b]=x;B[b+1u]=v;B[b+2u]=w;
+  let c=cid(cellOf(x.xyz));let k=atomicAdd(&C[c*(p.CAP+1u)],1u);
+  if(k<p.CAP){atomicStore(&C[c*(p.CAP+1u)+1u+k],i);}
+  if(i==0u){atomicAdd(&MC[p.tIdx],1u);}
+  if(p.Fm>0.0&&B[b+4u].w>0.0){MM[i]=vec4<f32>(B[b+4u].w*pow(x.w/p.rbar,3.0)*fieldAt(x.xyz),0.0);let mc=mcid(mcellOf(x.xyz));let mk=atomicAdd(&MC[mc*(p.mCAP+1u)],1u);if(mk<p.mCAP){atomicStore(&MC[mc*(p.mCAP+1u)+1u+mk],i);}}
+}
+// mutual induction: one Jacobi sweep per step, warm-started from last step's moments kept in MM[N+i]
+@compute @workgroup_size(${WG}) fn induce(@builtin(global_invocation_id) id:vec3<u32>){
+  let i=id.x;if(i>=p.N||p.pad8<=0.0||p.Fm<=0.0){return;}let chi=B[i*6u+4u].w;if(chi<=0.0){return;}
+  let xi=B[i*6u];let m0=MM[i].xyz;let v=chi*pow(xi.w/p.rbar,3.0);let b0=m0/v;let rc2=p.rc*p.rc;let zr=select(0,1,p.dim==3u);
+  var bd=vec3<f32>(0.0);let c0=mcellOf(xi.xyz);
+  for(var dz=-zr;dz<=zr;dz++){for(var dy=-1;dy<=1;dy++){for(var dx=-1;dx<=1;dx++){
+    let cc=mcid(c0+vec3<i32>(dx,dy,dz));let base=cc*(p.mCAP+1u);let cnt=min(atomicLoad(&MC[base]),p.mCAP);
+    for(var s=0u;s<cnt;s++){let j=atomicLoad(&MC[base+1u+s]);if(j==i){continue;}
+      let xj=B[j*6u];let dv=xi.xyz-xj.xyz;let dd=dot(dv,dv);if(dd>=rc2||dd==0.0){continue;}
+      let r=sqrt(dd);let n=dv/r;let re=max(r,0.95*(xi.w+xj.w));let mj=MM[p.N+j].xyz;
+      bd+=p.pad9/(re*re*re)*(3.0*dot(mj,n)*n-mj);}}}}
+  let lb0=length(b0);let lbd=length(bd);if(lbd>p.pad10*lb0){bd=bd*(p.pad10*lb0/lbd);}
+  MM[i]=vec4<f32>(0.5*(MM[p.N+i].xyz+v*(b0+bd)),0.0);}
+var<private> nh:u32;
+fn histFind(i:u32,j:u32)->vec3<f32>{
+  if(p.hist==0u){return vec3<f32>(0.0);}
+  for(var m=0u;m<p.KH;m++){let h=HR[i*p.KH+m];if(h.w==0.0){break;}if(u32(h.w)-1u==j){return h.xyz;}}
+  return vec3<f32>(0.0);}
+fn histPut(i:u32,j:u32,xi:vec3<f32>){if(p.hist==0u||nh>=p.KH){return;}HW[i*p.KH+nh]=vec4<f32>(xi,f32(j+1u));nh++;}
+@compute @workgroup_size(${WG}) fn forces(@builtin(global_invocation_id) id:vec3<u32>){
+  let i=id.x;if(i>=p.N){return;}let bi=i*6u;
+  let xi=B[bi];let vi=B[bi+1u];let wi=B[bi+2u];let ri=xi.w;
+  var F=vec3<f32>(0.0);var T=vec3<f32>(0.0);nh=0u;
+  let c0=cellOf(xi.xyz);let zr=select(0,1,p.dim==3u);
+  for(var dz=-zr;dz<=zr;dz++){for(var dy=-1;dy<=1;dy++){for(var dx=-1;dx<=1;dx++){
+    let cc=cid(c0+vec3<i32>(dx,dy,dz));let base=cc*(p.CAP+1u);let cnt=min(atomicLoad(&C[base]),p.CAP);
+    for(var s=0u;s<cnt;s++){let j=atomicLoad(&C[base+1u+s]);if(j==i){continue;}
+      let bj=j*6u;let xj=B[bj];let rj=xj.w;let d3=xj.xyz-xi.xyz;let rs=ri+rj;let dd=dot(d3,d3);
+      if(dd>=rs*rs||dd==0.0){continue;}
+      let d=sqrt(dd);let n=d3/d;let vj=B[bj+1u];let wj=B[bj+2u];let rv=vj.xyz-vi.xyz;let vn=dot(rv,n);
+      let Fn=p.kn*(rs-d)-p.etan*vn;if(Fn<=0.0){continue;}
+      let cap=p.mu*Fn;
+      if(p.dim==2u){
+        let vt=-rv.x*n.y+rv.y*n.x-(ri*wi.z+rj*wj.z);var ft=p.etat*vt;
+        if(p.hist==1u){var h=histFind(i,j).x+vt*p.dt;ft=p.kt*h+p.etat*vt;if(ft>cap||ft< -cap){ft=select(-cap,cap,ft>0.0);h=(ft-p.etat*vt)/p.kt;}histPut(i,j,vec3<f32>(h,0.0,0.0));}
+        ft=clamp(ft,-cap,cap);
+        F+=vec3<f32>(-Fn*n.x-ft*n.y,-Fn*n.y+ft*n.x,0.0);T.z+=ri*ft;
+      }else{
+        let sv=ri*wi.xyz+rj*wj.xyz;var u=rv-cross(sv,n);u=u-dot(u,n)*n;var tv:vec3<f32>;
+        if(p.hist==1u){var h=histFind(i,j);let h0=length(h);h=h-dot(h,n)*n;let h1=length(h);if(h1>1e-12){h=h*(h0/h1);}
+          h=h+u*p.dt;tv=p.kt*h+p.etat*u;let fm=length(tv);if(fm>cap){tv=tv*(cap/fm);h=(tv-p.etat*u)/p.kt;}histPut(i,j,h);}
+        else{let um=length(u);var sc=p.etat;if(um*sc>cap){sc=cap/um;}tv=sc*u;}
+        F+=-Fn*n+tv;T+=ri*cross(n,tv);
+      }
+    }}}}
+  // walls
+  var wh=B[bi+5u];var wtouch=false;
+  let dxw=xi.x-p.CX;let dzw=select(0.0,xi.z,p.dim==3u);
+  let rho=select(abs(dxw),sqrt(dxw*dxw+dzw*dzw),p.dim==3u);let s=p.CY-xi.y;let sm=abs(s);
+  var nW=vec3<f32>(0.0);var dl=0.0;var hit=false;
+  if(p.gate==1u&&s>-ri&&s<ri&&rho<p.Dh+ri&&s>=0.0){nW=vec3<f32>(0.0,-1.0,0.0);dl=ri-s;hit=true;}
+  if(!hit){
+  var b=u32(floor(sm/p.BS));if(b>=p.nb){b=p.nb-1u;}
+  if(rho+ri>=GM[p.rminOff+b]){
+    let l0=u32(GM[p.binOff+b]);let l1=u32(GM[p.binOff+b+1u]);var best=1e18;var br=0.0;var bs=0.0;var bk=-1;var bsd=0.0;
+    for(var q=l0;q<l1;q++){let k=u32(GM[p.listOff+q]);let o=p.segOff+k*8u;
+      let ar=GM[o];let as_=GM[o+1u];let dr=GM[o+2u];let ds=GM[o+3u];let l2=GM[o+4u];let nr=GM[o+5u];let ns=GM[o+6u];
+      var tt=((rho-ar)*dr+(sm-as_)*ds)/l2;tt=clamp(tt,0.0,1.0);let cr=ar+tt*dr;let cs=as_+tt*ds;let d2=(rho-cr)*(rho-cr)+(sm-cs)*(sm-cs);
+      let sd=(rho-cr)*nr+(sm-cs)*ns;
+      if(d2<best-1e-9||(abs(d2-best)<=1e-9&&abs(sd)>abs(bsd))){best=d2;br=cr;bs=cs;bk=i32(k);bsd=sd;}}
+    if(bk>=0){let inside=bsd>=0.0;
+      if(!(best>=ri*ri&&inside)){let dist=sqrt(best);let o=p.segOff+u32(bk)*8u;var nr=GM[o+5u];var ns=GM[o+6u];
+        if(dist>1e-6){nr=(rho-br)/dist;ns=(sm-bs)/dist;if(!inside){nr=-nr;ns=-ns;}}
+        dl=select(ri+dist,ri-dist,inside);if(s<0.0){ns=-ns;}
+        var cxs=1.0;var czs=0.0;if(rho>1e-6){cxs=dxw/rho;czs=dzw/rho;}else if(p.dim==2u&&dxw<0.0){cxs=-1.0;}
+        nW=vec3<f32>(nr*cxs,-ns,nr*czs);hit=true;}}
+  }}
+  if(hit){let vn=dot(vi.xyz,nW);let Fn=p.kn*dl-p.etanw*vn;
+    if(Fn>0.0){let cap=p.muw*Fn;
+      if(p.dim==2u){let tx=-nW.y;let ty=nW.x;let vt=vi.x*tx+vi.y*ty-ri*wi.z;var ft=p.etatw*vt;
+        if(p.hist==1u){var h=wh.x+vt*p.dt;ft=p.kt*h+p.etatw*vt;if(ft>cap||ft< -cap){ft=select(-cap,cap,ft>0.0);h=(ft-p.etatw*vt)/p.kt;}wh=vec4<f32>(h,0.0,0.0,0.0);wtouch=true;}
+        ft=clamp(ft,-cap,cap);F+=vec3<f32>(Fn*nW.x-ft*tx,Fn*nW.y-ft*ty,0.0);T.z+=ri*ft;}
+      else{var u=vi.xyz-ri*cross(wi.xyz,nW);u=u-dot(u,nW)*nW;var tv:vec3<f32>;
+        if(p.hist==1u){var h=wh.xyz;let h0=length(h);h=h-dot(h,nW)*nW;let h1=length(h);if(h1>1e-12){h=h*(h0/h1);}
+          h=h+u*p.dt;tv=-(p.kt*h+p.etatw*u);let fm=length(tv);if(fm>cap){tv=tv*(cap/fm);h=(-tv-p.etatw*u)/p.kt;}wh=vec4<f32>(h,0.0);wtouch=true;}
+        else{let um=length(u);var sc=p.etatw;if(um*sc>cap){sc=cap/um;}tv=-sc*u;}
+        F+=Fn*nW+tv;T+=-ri*cross(nW,tv);}
+    }}
+  if(!wtouch){wh=vec4<f32>(0.0);}
+  // induced dipoles: force on i from every magnetic grain within rc
+  let chi=B[bi+4u].w;
+  if(p.Fm>0.0&&chi>0.0){
+    let mi=MM[i].xyz;let m0=mcellOf(xi.xyz);let rc2=p.rc*p.rc;
+    if(p.prof>0u&&p.pad8>0.0){let e=0.5;let be=mi/(chi*pow(ri/p.rbar,3.0));
+      var gr=vec3<f32>(dot(be,fieldAt(xi.xyz+vec3<f32>(e,0.0,0.0))-fieldAt(xi.xyz-vec3<f32>(e,0.0,0.0))),dot(be,fieldAt(xi.xyz+vec3<f32>(0.0,e,0.0))-fieldAt(xi.xyz-vec3<f32>(0.0,e,0.0))),0.0);
+      if(p.dim==3u){gr.z=dot(be,fieldAt(xi.xyz+vec3<f32>(0.0,0.0,e))-fieldAt(xi.xyz-vec3<f32>(0.0,0.0,e)));}
+      F+=chi*(1.0/vi.w)*p.Kg/(2.0*e)*gr;}
+    else if(p.prof>0u){let e=0.5;var gr=vec3<f32>((bsq(xi.xyz+vec3<f32>(e,0.0,0.0))-bsq(xi.xyz-vec3<f32>(e,0.0,0.0))),(bsq(xi.xyz+vec3<f32>(0.0,e,0.0))-bsq(xi.xyz-vec3<f32>(0.0,e,0.0))),0.0);
+      if(p.dim==3u){gr.z=bsq(xi.xyz+vec3<f32>(0.0,0.0,e))-bsq(xi.xyz-vec3<f32>(0.0,0.0,e));}
+      F+=chi*(1.0/vi.w)*p.Kg*0.5/(2.0*e)*gr;}
+    for(var dz=-zr;dz<=zr;dz++){for(var dy=-1;dy<=1;dy++){for(var dx=-1;dx<=1;dx++){
+      let cc=mcid(m0+vec3<i32>(dx,dy,dz));let base=cc*(p.mCAP+1u);let cnt=min(atomicLoad(&MC[base]),p.mCAP);
+      for(var s2=0u;s2<cnt;s2++){let j=atomicLoad(&MC[base+1u+s2]);if(j==i){continue;}
+        let xj=B[j*6u];let dv=xi.xyz-xj.xyz;let dd=dot(dv,dv);if(dd>=rc2||dd==0.0){continue;}
+        let r=sqrt(dd);let n=dv/r;let re=max(r,0.95*(ri+xj.w));
+        let mj=MM[j].xyz;
+        let a=dot(mi,n);let bb=dot(mj,n);let k=0.5*p.Fm*p.d4/(re*re*re*re);
+        F+=k*(a*mj+bb*mi+(dot(mi,mj)-5.0*a*bb)*n);
+      }}}}
+    if(p.pad8>0.0){MM[p.N+i]=vec4<f32>(mi,0.0);}
+  }
+  B[bi+5u]=wh;
+  for(var m=nh;m<p.KH;m++){HW[i*p.KH+m]=vec4<f32>(0.0);}
+  B[bi+3u]=vec4<f32>(F,0.0);B[bi+4u]=vec4<f32>(T,chi);
+}
+@compute @workgroup_size(${WG}) fn pack(@builtin(global_invocation_id) id:vec3<u32>){
+  let i=id.x;if(i>=p.N){return;}let x=B[i*6u];let v=B[i*6u+1u];OUT[i]=vec4<f32>(x.xyz,length(v.xyz));}
+`;
+  function buf(size,usage){return device.createBuffer({size:Math.max(16,Math.ceil(size/16)*16),usage:usage})}
+  var SU=GPUBufferUsage;
+  var prmArr=new ArrayBuffer(68*4),prmU=new Uint32Array(prmArr),prmF=new Float32Array(prmArr);
+  function writePrm(){
+    var c=cpu.consts(),gi=cpu.gridInfo();
+    prmU[0]=N;prmU[1]=dim;prmU[2]=KH;prmU[3]=CAP;prmU[4]=gi.gx;prmU[5]=gi.gy;prmU[6]=gi.gz;prmU[7]=geomInfo.nb;
+    prmU[8]=P.hist?1:0;prmU[9]=gate?1:0;prmU[10]=geomInfo.segOff;prmU[11]=geomInfo.binOff;prmU[12]=geomInfo.rminOff;prmU[13]=geomInfo.listOff;
+    prmF[16]=dt;prmF[17]=900*P.g;prmF[18]=c.kn;prmF[19]=c.kt;prmF[20]=c.etan;prmF[21]=c.etat;prmF[22]=c.etanw;prmF[23]=c.etatw;
+    prmF[24]=P.mu;prmF[25]=P.muw;prmF[26]=gi.ox;prmF[27]=gi.oy;prmF[28]=gi.oz;prmF[29]=gi.cell;prmF[30]=cpu.CX;prmF[31]=cpu.CY;
+    prmF[32]=P.D/2;prmF[33]=geomInfo.BS;
+    var rb=c.rbar,mg=magGrid();prmF[36]=P.Bo*c.mbar*900*P.g;prmF[37]=P.hx;prmF[38]=P.hy;prmF[39]=P.hz;prmF[40]=P.rcm*2*rb;prmF[41]=Math.pow(2*rb,4);prmF[42]=rb;prmF[43]=mg.cell;
+    prmU[44]=mg.gx;prmU[45]=mg.gy;prmU[46]=mg.gz;prmU[47]=mg.CAP;prmF[48]=t;
+    P.dim=dim;P.Lh=P.H;magGeom(P,cpu.CX,cpu.CY,P.H,P.D/2);
+    prmF[49]=4*P.Bo*2*rb/P.chie*900*P.g;prmF[50]=P.G||0;prmF[51]=P.H;prmU[52]=P.prof|0;prmU[53]=P.tmode|0;prmU[54]=ncm*(mg.CAP+1);
+    prmF[56]=P.Mx||0;prmF[57]=P.My||0;prmF[58]=0;prmF[59]=P.norm||1;prmF[60]=P.freq||0;prmF[61]=P.Tramp||1;prmF[62]=(P.W||250)/2;prmF[63]=P.mutual>0?1:0;prmF[64]=(P.chie||3)*rb*rb*rb/3;prmF[65]=P.mcap||3;
+    device.queue.writeBuffer(prmBuf,0,prmArr);
+  }
+  var MG=null;function magGrid(){if(MG)return MG;var gi=cpu.gridInfo(),c=cpu.consts(),cell=Math.max(gi.cell,P.rcm*2*c.rbar),halfW=P.W/2+12;
+    MG={cell:cell,gx:Math.ceil(2*halfW/cell)+3,gy:Math.ceil((2*P.H+28)/cell)+3};MG.gz=dim===3?MG.gx:1;MG.CAP=dim===3?48:20;return MG}
+  function uploadGeom(){
+    var w=cpu.wallData(),s=w.seg,n=s.n,i,b,list=[],starts=[0];
+    for(b=0;b<w.nb;b++){for(i=0;i<w.bins[b].length;i++)list.push(w.bins[b][i]);starts.push(list.length)}
+    var segOff=0,binOff=n*8,rminOff=binOff+w.nb+1,listOff=rminOff+w.nb,tot=listOff+list.length,g=new Float32Array(Math.max(4,tot));
+    for(i=0;i<n;i++){var o=i*8;g[o]=s.ar[i];g[o+1]=s.as[i];g[o+2]=s.dr[i];g[o+3]=s.ds[i];g[o+4]=s.l2[i];g[o+5]=s.nr[i];g[o+6]=s.ns[i]}
+    for(b=0;b<=w.nb;b++)g[binOff+b]=starts[b];for(b=0;b<w.nb;b++)g[rminOff+b]=w.rmin[b];for(i=0;i<list.length;i++)g[listOff+i]=list[i];
+    geomInfo={segOff:segOff,binOff:binOff,rminOff:rminOff,listOff:listOff,nb:w.nb,BS:w.BS};
+    geomBuf=buf(g.byteLength,SU.STORAGE|SU.COPY_DST);device.queue.writeBuffer(geomBuf,0,g);
+  }
+  function makeBG(hr,hw){var L=pipes.layout;return device.createBindGroup({layout:L,entries:[
+    {binding:0,resource:{buffer:prmBuf}},{binding:1,resource:{buffer:bodyBuf}},{binding:2,resource:{buffer:cellBuf}},
+    {binding:3,resource:{buffer:hr}},{binding:4,resource:{buffer:hw}},{binding:5,resource:{buffer:geomBuf}},{binding:6,resource:{buffer:outBuf}},{binding:7,resource:{buffer:mcBuf}},{binding:8,resource:{buffer:mmBuf}}]})}
+  function pipelines(){
+    if(pipes.mod)return;var m=device.createShaderModule({code:shader});pipes.mod=m;
+    var S="storage",R="read-only-storage",ST=GPUShaderStage.COMPUTE;
+    pipes.layout=device.createBindGroupLayout({entries:[{binding:0,visibility:ST,buffer:{type:"uniform"}},{binding:1,visibility:ST,buffer:{type:S}},
+      {binding:2,visibility:ST,buffer:{type:S}},{binding:3,visibility:ST,buffer:{type:R}},{binding:4,visibility:ST,buffer:{type:S}},
+      {binding:5,visibility:ST,buffer:{type:R}},{binding:6,visibility:ST,buffer:{type:S}},{binding:7,visibility:ST,buffer:{type:S}},{binding:8,visibility:ST,buffer:{type:S}}]});
+    var pl=device.createPipelineLayout({bindGroupLayouts:[pipes.layout]});
+    ["clearCells","integrate","induce","forces","pack"].forEach(function(e){pipes[e]=device.createComputePipeline({layout:pl,compute:{module:m,entryPoint:e}})});
+  }
+  // upload the current CPU-engine state (positions, radii, masses); velocities and histories start at zero
+  function upload(){
+    var A=cpu.arrays(),i,body=new Float32Array(N*24),hinit=new Float32Array(N*KH*4);
+    for(i=0;i<N;i++){var o=i*24,r=A.RAD[i],m=dim===2?Math.pow(r/3,2):Math.pow(r/3.75,3);
+      body[o]=A.X[i];body[o+1]=A.Y[i];body[o+2]=A.Z[i];body[o+3]=r;body[o+7]=1/m;body[o+11]=1/((dim===2?0.5:0.4)*m*r*r);body[o+19]=A.CHI[i];}
+    CHI=Float32Array.from(A.CHI);
+    
+    device.queue.writeBuffer(bodyBuf,0,body);device.queue.writeBuffer(histA,0,hinit);device.queue.writeBuffer(histB,0,hinit);
+    S0=Float32Array.from(A.S0);RAD=Float32Array.from(A.RAD);X=new Float64Array(N);Y=new Float64Array(N);Z=new Float64Array(N);SP=new Float32Array(N);
+    for(i=0;i<N;i++){X[i]=A.X[i];Y[i]=A.Y[i];Z[i]=A.Z[i]}
+  }
+  G.init=function(opt){
+    N=cpu.init(opt);dim=P.dim||2;KH=dim===2?8:16;CAP=dim===2?6:12;dt=cpu.consts().dt;gate=true;t=0;
+    var gi=cpu.gridInfo();nc=gi.gx*gi.gy*gi.gz;pipelines();
+    prmBuf=buf(68*4,SU.UNIFORM|SU.COPY_DST);bodyBuf=buf(N*96,SU.STORAGE|SU.COPY_DST|SU.COPY_SRC);
+    MG=null;var mg=magGrid();ncm=mg.gx*mg.gy*mg.gz;cellBuf=buf(nc*(CAP+1)*4,SU.STORAGE);mcBuf=buf((ncm*(mg.CAP+1)+4)*4,SU.STORAGE|SU.COPY_DST);histA=buf(N*KH*16,SU.STORAGE|SU.COPY_DST);histB=buf(N*KH*16,SU.STORAGE|SU.COPY_DST);
+    mmBuf=buf(N*32,SU.STORAGE);outBuf=buf(N*16,SU.STORAGE|SU.COPY_SRC);readBuf=buf(N*16,SU.MAP_READ|SU.COPY_DST);
+    uploadGeom();bgA=makeBG(histA,histB);bgB=makeBG(histB,histA);ping=0;upload();writePrm();G.N=N;G.t=0;G.dt=dt;return N;
+  };
+  function encode(enc,n){
+    var gN=Math.ceil(N/WG),gC=Math.ceil(Math.max(nc,ncm)/WG);
+    var pass=enc.beginComputePass();
+    for(var k=0;k<n;k++){pass.setBindGroup(0,ping?bgB:bgA);pass.setPipeline(pipes.clearCells);pass.dispatchWorkgroups(gC);
+      pass.setPipeline(pipes.integrate);pass.dispatchWorkgroups(gN);
+      if(P.mutual>0&&P.Bo>0){pass.setPipeline(pipes.induce);pass.dispatchWorkgroups(gN);}
+      pass.setPipeline(pipes.forces);pass.dispatchWorkgroups(gN);ping^=1;}
+    pass.end();
+  }
+  var busy=false,inflight=0,pool=[],lastDone=0;
+  var zero=new Uint32Array(1);
+  // queue n steps without waiting; resolves with the GPU time (ms) this batch took once it has finished
+  G.submit=function(n){
+    writePrm();device.queue.writeBuffer(mcBuf,ncm*(magGrid().CAP+1)*4,zero);var enc=device.createCommandEncoder();encode(enc,n);device.queue.submit([enc.finish()]);
+    t+=n*dt;G.t=t;nsteps+=n;inflight++;var ts=performance.now();
+    return device.queue.onSubmittedWorkDone().then(function(){inflight--;var now=performance.now(),ms=now-Math.max(ts,lastDone);lastDone=now;return ms});
+  };
+  G.inflight=function(){return inflight};
+  // queue a copy of the current positions (after everything submitted so far); resolves with {t,a}
+  G.read=function(){
+    var rb=pool.pop()||buf(N*16,SU.MAP_READ|SU.COPY_DST),tt=t,enc=device.createCommandEncoder();
+    var pass=enc.beginComputePass();pass.setBindGroup(0,ping?bgB:bgA);pass.setPipeline(pipes.pack);pass.dispatchWorkgroups(Math.ceil(N/WG));pass.end();
+    enc.copyBufferToBuffer(outBuf,0,rb,0,N*16);device.queue.submit([enc.finish()]);
+    return rb.mapAsync(GPUMapMode.READ).then(function(){var a=new Float32Array(rb.getMappedRange().slice(0));rb.unmap();if(G.dead)rb.destroy();else pool.push(rb);return {t:tt,a:a}},
+      function(){G.dead=true;return null});
+  };
+  G.apply=function(r){if(!r||G.dead)return;var a=r.a;for(var i=0;i<N;i++){X[i]=a[4*i];Y[i]=a[4*i+1];Z[i]=a[4*i+2];SP[i]=a[4*i+3]}G.tr=r.t};
+  // advance n steps and wait for the positions (used by settling, sweeps and tests)
+  G.advance=async function(n){busy=true;G.submit(n);var r=await G.read();G.apply(r);busy=false};
+  // take over a settled state from the CPU engine (which may have reordered its grains)
+  G.fromCPU=function(C){var A=C.arrays(),L=new Array(N),i;for(i=0;i<N;i++){var o=A.OID?A.OID[i]:i;L[o]=[A.X[i],A.Y[i],A.Z[i],0,0,0];S0[o]=A.S0[i]}
+    G.setState(L);var hz=new Float32Array(N*KH*4);device.queue.writeBuffer(histA,0,hz);device.queue.writeBuffer(histB,0,hz);for(i=0;i<N;i++){X[i]=L[i][0];Y[i]=L[i][1];Z[i]=L[i][2]}G.tr=0};
+  // cancel(): optional, checked between chunks (sized to ~100 ms of GPU work) so a rebuild can abandon a long settle
+  G.settle=async function(T,cancel){gate=true;writePrm();var n=Math.ceil(T/dt),k=8;while(n>0){if(cancel&&cancel()){G.cancelled=true;return}var c=Math.min(n,k),t0=performance.now();await G.advance(c);n-=c;var ms=performance.now()-t0;k=Math.max(1,Math.min(400,Math.round(c*100/Math.max(ms,1))))}
+    // zero velocities and histories, record layer heights
+    var body=new Float32Array(N*24),A=cpu.arrays(),i;await readBody(body);
+    for(i=0;i<N;i++){var o=i*24;for(var q=4;q<7;q++)body[o+q]=0;for(q=8;q<11;q++)body[o+q]=0;for(q=12;q<24;q++)body[o+q]=0;body[o+19]=CHI[i];S0[i]=cpu.CY-body[o+1]}
+    device.queue.writeBuffer(bodyBuf,0,body);var hinit=new Float32Array(N*KH*4);
+    device.queue.writeBuffer(histA,0,hinit);device.queue.writeBuffer(histB,0,hinit);t=0;G.t=0;G.tr=0;};
+  async function readBody(dst){var rb=buf(N*96,SU.MAP_READ|SU.COPY_DST),enc=device.createCommandEncoder();enc.copyBufferToBuffer(bodyBuf,0,rb,0,N*96);device.queue.submit([enc.finish()]);
+    await rb.mapAsync(GPUMapMode.READ);dst.set(new Float32Array(rb.getMappedRange()));rb.unmap();rb.destroy();}
+  G.setGate=function(v){gate=v;writePrm()};G.tr=0;
+  G.resetTime=function(){t=0;G.t=0;G.tr=0};
+  G.setState=function(L){var body=new Float32Array(N*24),i;for(i=0;i<N;i++){var o=i*24,r=RAD[i],m=dim===2?Math.pow(r/3,2):Math.pow(r/3.75,3);body[o+19]=CHI[i];
+      body[o]=L[i][0];body[o+1]=L[i][1];body[o+2]=L[i][2];body[o+3]=r;body[o+4]=L[i][3];body[o+5]=L[i][4];body[o+6]=L[i][5];body[o+7]=1/m;body[o+11]=1/((dim===2?0.5:0.4)*m*r*r);}
+    device.queue.writeBuffer(bodyBuf,0,body);t=0;G.t=0};
+  G.readFull=async function(){var b=new Float32Array(N*24);await readBody(b);return b};
+  G.live=function(o){for(var k in o)P[k]=o[k];var old=dt;cpu.setConsts();var nd=cpu.consts().dt;dt=Math.min(old,nd);
+    if(o.D!=null||o.shape){cpu.live({D:P.D});uploadGeom();bgA=makeBG(histA,histB);bgB=makeBG(histB,histA)}writePrm()};
+  G.flip=async function(){var body=new Float32Array(N*24);await readBody(body);var cx=cpu.CX,cy=cpu.CY;
+    for(var i=0;i<N;i++){var o=i*24;body[o]=2*cx-body[o];body[o+1]=2*cy-body[o+1];body[o+2]=-body[o+2];for(var q=4;q<7;q++)body[o+q]=0;for(q=8;q<11;q++)body[o+q]=0;for(q=12;q<24;q++)body[o+q]=0;body[o+19]=CHI[i];S0[i]=-S0[i]}
+    device.queue.writeBuffer(bodyBuf,0,body);var hinit=new Float32Array(N*KH*4);
+    device.queue.writeBuffer(histA,0,hinit);device.queue.writeBuffer(histB,0,hinit);t=0;G.t=0;G.tr=0;
+    for(i=0;i<N;i++){X[i]=body[i*24];Y[i]=body[i*24+1];Z[i]=body[i*24+2]}};
+  // same as the CPU engine's place(): write whole grain records (position, radius, mass, chi; zero velocity, force, histories)
+  G.place=function(L,v0){var rec=new Float32Array(24),hz=new Float32Array(KH*4);for(var q=0;q<L.length;q++){var i=L[q][0],r=RAD[i],m=dim===2?Math.pow(r/3,2):Math.pow(r/3.75,3);rec.fill(0);
+      rec[0]=L[q][1];rec[1]=L[q][2];rec[2]=dim===3?L[q][3]:0;rec[3]=r;rec[5]=v0||0;rec[7]=1/m;rec[11]=1/((dim===2?0.5:0.4)*m*r*r);rec[19]=CHI[i];
+      device.queue.writeBuffer(bodyBuf,i*96,rec);device.queue.writeBuffer(histA,i*KH*16,hz);device.queue.writeBuffer(histB,i*KH*16,hz);X[i]=rec[0];Y[i]=rec[1];Z[i]=rec[2]}};
+  G.feed=function(depth,maxk,v0){var L=feedPlan(X,Y,Z,N,cpu.CX,cpu.CY,P.H,P.r*(1+P.poly),cpu.halfWidthAt,dim,depth,maxk);G.place(L,v0);return L.length};
+  G.countBelow=function(){var c=0,cy=cpu.CY;for(var i=0;i<N;i++)if(Y[i]>cy)c++;return c};
+  G.arrays=function(){return {X:X,Y:Y,Z:Z,SP:SP,RAD:RAD,S0:S0,N:N,CHI:CHI}};
+  G.dimOf=function(){return dim};G.CX=cpu.CX;G.CY=cpu.CY;G.cpu=cpu;G.isBusy=function(){return busy};
+  G.chi=function(){return CHI};G.setMagFrac=async function(f,sd){cpu.setMagFrac(f,sd);var A=cpu.arrays(),body=new Float32Array(N*24);await readBody(body);for(var i=0;i<N;i++){CHI[i]=A.CHI[i];body[i*24+19]=CHI[i]}device.queue.writeBuffer(bodyBuf,0,body);P.mfrac=f};
+  G.destroy=function(){G.dead=true;pool.forEach(function(b){b.destroy()});pool=[];[mmBuf,mcBuf,bodyBuf,cellBuf,histA,histB,geomBuf,prmBuf,outBuf,readBuf].forEach(function(b){if(b)b.destroy()})};
+  return G;
+}
+
+</script>
+<script>
+(function(){
+"use strict";
+var W=400,H=640,CX=200,CY=320,G0=900;
+function $(id){return document.getElementById(id)}
+var cv=$("c"),ctx=cv.getContext("2d");
+var mode="2d",paused=false,auto=false,emptyT=0,flipA=null;
+var GEOM={2:{W:250,H:270},3:{W:250,H:270}};
+// Beverloo constants fitted to this engine (stiff contacts, static friction, wall friction = grain friction, friction 0.4),
+// with a friction correction factor; replaced in build from the calibration sweep.
+var BEV={"2": {"hourglass": [1.365, 0.2], "cone": [1.352, 0.23], "classic": [1.342, 1.55], "silo": [1.046, 1.16], "bottle": [1.109, 1.77]}, "3": {"hourglass": [0.741, 0.56], "cone": [0.783, 0.72], "classic": [0.579, 1.15], "silo": [0.507, 1.31], "bottle": [0.437, 1.34]}, "fmu": [[0, 1.661], [0.2, 1.21], [0.4, 1.0], [0.6, 0.935], [0.8, 0.902], [1, 0.852]]};
+var PAL_SAND=["#e4b24f","#f3e6bd","#c0653a","#8f6a3c"];
+// ---------------- shared runner (worker or main thread) ----------------
+function makeRunner(post){
+  // E is the CPU engine (synchronous steps) or the WebGPU engine (queued batches, positions read back asynchronously).
+  // At every start both are timed on the actual fill and the faster one is used, unless the user forces one.
+  var E=null,gpu=false,dev=null,devTried=false,gpuName="",soft=false,rid=0,on=false,speed=1,wall0=0,sim0=0,samples=[],nextS=0,want=false,ready=false,rw=0,rs=0,rtv=1,busy=false,
+      budget=64,latE=0.02,rec=false,fps=30,nextF=0,reads=0,bench=null,wake=function(){},feedOn=false,fed=0,nextFd=0,Hc=270;
+  function feedNow(){fed+=E.feed(0.4*Hc,80,60);nextFd=E.t+1/30}
+  function passed(){return fed+E.countBelow()}
+  async function device(){
+    if(devTried)return dev;devTried=true;
+    try{if(typeof navigator!=="undefined"&&navigator.gpu&&typeof makeGPUEngine!=="undefined"){var ad=await navigator.gpu.requestAdapter({powerPreference:"high-performance"});
+      if(ad){var L=ad.limits;dev=await ad.requestDevice({requiredLimits:{maxStorageBufferBindingSize:L.maxStorageBufferBindingSize,maxBufferSize:L.maxBufferSize}});
+        var inf=ad.info||{};gpuName=((inf.vendor||"")+" "+(inf.architecture||inf.description||"")).trim()||"GPU";soft=!!(ad.isFallbackAdapter||(inf&&inf.isFallbackAdapter)||/swiftshader|llvmpipe|software|basic render/i.test(gpuName));dev.lost.then(function(){dev=null});}}}catch(e){dev=null}
+    return dev;
+  }
+  function A(){return E.arrays()}
+  function tNow(){return gpu?E.tr:E.t}
+  function belowMag(){var a=A(),c=0,cy=E.CY;if(!a.CHI)return 0;for(var i=0;i<a.N;i++)if(a.Y[i]>cy&&a.CHI[i]>0)c++;return c}
+  function sample(){samples.push([tNow(),passed(),belowMag()])}
+  function snap(recFrame,stream){
+    var a=A(),n=a.N,d=E.dimOf(),k=d===3?3:2,pos=new Float32Array(n*k),rad=new Float32Array(n),s0=new Float32Array(n),chi=new Uint8Array(n),sp=d===3?new Float32Array(n):null,i;
+    for(i=0;i<n;i++){var o=a.OID?a.OID[i]:i;pos[o*k]=a.X[i]-E.CX;pos[o*k+1]=E.CY-a.Y[i];if(k===3){pos[o*k+2]=a.Z[i];sp[o]=a.SP?a.SP[i]:Math.sqrt(a.VX[i]*a.VX[i]+a.VY[i]*a.VY[i]+a.VZ[i]*a.VZ[i])}rad[o]=a.RAD[i];s0[o]=a.S0[i];chi[o]=a.CHI&&a.CHI[i]>0?1:0}
+    var m={type:"snap",stream:!!stream,chi:chi,rec:recFrame,rid:rid,t:tNow(),n:n,dim:d,pos:pos,rad:rad,s0:s0,sp:sp,below:E.countBelow(),passed:passed(),feed:feedOn,samples:samples,rtv:rtv,gpu:gpu},tr=[pos.buffer,rad.buffer,s0.buffer,chi.buffer];if(sp)tr.push(sp.buffer);
+    samples=[];post(m,tr);
+  }
+  // Measure the two things that set GPU speed separately: L, the delay before the browser reports that a batch has finished
+  // (independent of batch size; from a few ms to 100+ ms depending on browser, OS and driver), and c, the GPU time per step.
+  // Batches are then sized to ~20 ms of GPU work, and enough of them are kept queued to cover the delay.
+  var GP={L:20,c:0.05,n:64,inq:3};
+  async function probeGPU(G){
+    await G.submit(2);G.apply(await G.read());                       // warm-up: compiles the shaders
+    var Ls=[],k;for(k=0;k<3;k++)Ls.push(await G.submit(1));Ls.sort(function(a,b){return a-b});var L=Ls[1],n=64,ms=0,t0=performance.now();
+    while(true){ms=await G.submit(n);if(ms-L>25||n>=16384||performance.now()-t0>2500)break;n*=4}
+    var c=Math.max(2e-4,(ms-L)/n);GP={L:L,c:c,n:Math.max(16,Math.min(20000,Math.round(20/c))),inq:0};GP.inq=Math.max(2,Math.min(12,Math.ceil(L/(c*GP.n))+2));return GP}
+  // run the GPU flat out with that batch size and queue depth for ~ms milliseconds; simulated seconds per wall second
+  async function timeGPU(G,ms){
+    await probeGPU(G);var t0=performance.now(),q=[],mark=null;
+    while(performance.now()-t0<ms){while(q.length<GP.inq)q.push(G.submit(GP.n));await q.shift();if(!mark&&performance.now()-t0>ms*0.3)mark=[performance.now(),G.t-GP.inq*GP.n*G.dt]}
+    await Promise.all(q);var t1=performance.now();G.apply(await G.read());if(!mark)mark=[t0,0];return (G.t-mark[1])/((t1-mark[0])/1000)}
+  async function init(d){
+    var myRid=d.rid,cap=d.opt.dim===3?25000:40000,seed=d.seed||((Math.random()*1e9)>>>0);rid=myRid;ready=false;busy=true;reads=0;feedOn=!!d.opt.feed;fed=0;nextFd=0;Hc=d.opt.H;post({type:"status",text:"Settling the sand…"});
+    if(E&&E.destroy)E.destroy();E=null;gpu=false;bench=null;
+    var C=null,G=null,cpuRate=0,gpuRate=0,choice=d.backend||"auto",dv=choice!=="cpu"?await device():null;
+    // CPU: settle (timed) unless there are more grains than the CPU can handle
+    var probe=makeEngine();probe.seed(seed);var Nn=probe.init(d.opt);
+    if((Nn<=cap&&choice!=="gpu")||!dv){C=probe;var t0=performance.now(),s0=0;C.settle(0.35);cpuRate=0.35/((performance.now()-t0)/1000);C.setGate(false)}
+    if(rid!==myRid){busy=false;return}
+    if(dv){try{
+        G=makeGPUEngine(dv);G.cpu.seed(seed);G.init(d.opt);
+        if(C){post({type:"status",text:"Timing the GPU against the CPU…"});G.fromCPU(C);gpuRate=await timeGPU(G,600);G.fromCPU(C);}   // time it, then restart from the same settled state
+        else{post({type:"status",text:"Settling "+Nn+" grains on the GPU…"});await G.settle(0.35,function(){return rid!==myRid});if(G.cancelled){G.destroy();busy=false;return}await probeGPU(G);G.resetTime();}
+        G.setGate(false);
+      }catch(err){if(G&&G.destroy)G.destroy();G=null;post({type:"status",text:"GPU failed ("+err.message+"), using the CPU"})}}
+    if(rid!==myRid){if(G)G.destroy();busy=false;return}
+    var useG=G&&(choice==="gpu"||!C||gpuRate>1.15*cpuRate);
+    if(useG){E=G;gpu=true}else{if(G)G.destroy();if(!C){C=probe;C.settle(0.35);C.setGate(false)}E=C}
+    bench={cpu:cpuRate,gpu:gpuRate,choice:choice,N:Nn};
+    samples=[];nextS=0;nextF=0;wall0=0;budget=gpu?GP.n:64;latE=0.02;ready=true;busy=false;post({type:"ready",gp:(gpu||gpuRate>0)?GP:null,N:E.N,dt:E.dt,gpu:gpu,gpuName:gpuName,soft:soft,bench:bench});snap();
+  }
+  function msg(d){
+    if(d.cmd==="probe"){device().then(function(v){post({type:"backend",gpu:!!v,name:gpuName,soft:soft})})}
+    else if(d.cmd==="init"){init(d)}
+    else if(d.cmd==="live"&&ready){E.live(d.opt);}
+    else if(d.cmd==="flip"&&ready){rid=d.rid;if(gpu){busy=true;var go=function(){if(reads>0||E.inflight()>0){setTimeout(go,5);return}E.flip().then(function(){fed=0;samples=[];nextS=0;nextF=0;wall0=0;busy=false;snap()})};go()}else{E.flip();fed=0;samples=[];nextS=0;nextF=0;wall0=0;snap();}}
+    else if(d.cmd==="run"){on=d.on;wall0=0;}
+    else if(d.cmd==="feed"){feedOn=d.on;nextFd=0;}
+    else if(d.cmd==="speed"){speed=d.v;wall0=0;}
+    else if(d.cmd==="magfrac"&&ready){if(gpu){busy=true;var go2=function(){if(reads>0||E.inflight()>0){setTimeout(go2,5);return}E.setMagFrac(d.f).then(function(){busy=false})};go2()}else E.setMagFrac(d.f);}
+    else if(d.cmd==="rec"){rec=d.on;fps=d.fps||30;nextF=E?E.t:0;}
+    else if(d.cmd==="snap"){want=true;}
+  }
+  function pace(){var now=performance.now();if(!wall0){wall0=now;sim0=E.t;rw=now;rs=E.t}return sim0+(now-wall0)/1000*speed}
+  function rate(){var n2=performance.now();if(n2-rw>800){rtv=(E.t-rs)/((n2-rw)/1000)/speed;rw=n2;rs=E.t}}
+  // GPU: keep two batches queued, sized to ~6 ms of GPU work each; read positions back only when a frame, sample or recording frame is due
+  // GPU: when paced, each batch covers one display frame of simulated time and is followed by a position readback, so
+  // pictures arrive as a steady stream (the page plays them back smoothly, a little behind); enough batches are queued
+  // to cover the browser's reporting delay. Flat out, batches are ~20 ms of GPU work and the picture is read ~30 times a second.
+  var lastDisp=0;
+  function gpuTick(){
+    var tg=pace(),fast=speed>1e6,Ecur=E,now=performance.now();
+    var lead=fast?Infinity:Math.min(1.5,speed*(1.5*GP.L/1000+0.05)),nFrame=fast?budget:Math.max(1,Math.ceil(speed/60/E.dt));
+    var maxIn=fast?GP.inq:Math.min(32,Math.ceil(lead/(Math.min(budget,nFrame)*E.dt))+2);
+    while(E.inflight()<maxIn&&E.t<tg+lead){
+      var n=Math.max(1,Math.min(budget,nFrame,fast?1e9:Math.ceil((tg+lead-E.t)/E.dt)));
+      if(rec){var toF=Math.ceil((nextF-E.t)/E.dt-1e-9);if(toF>=1)n=Math.min(n,toF)}
+      if(feedOn)n=Math.min(n,Math.max(1,Math.ceil(1/60/E.dt)));
+      // batch size (flat out): tuned on the GPU's own share of each batch's time (the reporting delay L is subtracted)
+      var full=n>=0.9*budget;E.submit(n).then(function(ms){wake();if(Ecur!==E)return;var w=ms-GP.L;
+        if(full&&w<12)budget=Math.min(20000,Math.ceil(budget*1.3));else if(w>40)budget=Math.max(8,Math.floor(budget*0.8))});
+      var dueRec=rec&&E.t>=nextF-1e-9,dueS=E.t>=nextS,dueFd=feedOn&&E.t>=nextFd,dueDisp=on&&reads<40&&(fast?now-lastDisp>33:true),dueSnap=want&&reads===0&&!dueRec&&!dueDisp;
+      if(dueFd)nextFd=E.t+1/30;if(dueRec)nextF+=1/fps;if(dueS)nextS=E.t+0.1;if(dueSnap)want=false;if(dueDisp)lastDisp=now;
+      if(dueRec||dueS||dueSnap||dueFd||dueDisp){reads++;E.read().then(function(r){reads--;wake();if(Ecur!==E||!r)return;E.apply(r);if(dueFd&&feedOn)fed+=E.feed(0.4*Hc,80,60);if(dueS)sample();
+        if(dueRec)snap(true);else if(dueDisp)snap(false,true);else if(dueSnap)snap()})}
+      if(fast)break;
+    }
+    if(!fast&&tg-E.t>Math.max(0.08,2*lead)){wall0=performance.now();sim0=E.t}
+    rate();
+  }
+  function tick(){
+    if(!ready||busy)return on;
+    if(on&&!gpu){var target=pace(),start=performance.now();
+      while(E.t<target&&performance.now()-start<14){E.step();if(feedOn&&E.t>=nextFd)feedNow();if(E.t>=nextS){sample();nextS+=0.1}if(rec&&E.t>=nextF){nextF+=1/fps;snap(true)}}
+      if(target-E.t>0.08){wall0=performance.now();sim0=E.t}rate();}
+    else if(on&&gpu){gpuTick();if(want&&reads===0)return true;return "wait"}
+    if(want&&!gpu){want=false;snap()}
+    else if(want&&gpu&&!on&&reads===0){want=false;reads++;var Ec=E;E.read().then(function(r){reads--;if(Ec===E&&r){E.apply(r);snap()}})}
+    return on;
+  }
+  return {msg:msg,tick:tick,setWake:function(f){wake=f}};
+}
+// Background sweeps: a second worker reruns the current set-up for a list of parameter values and measures the steady flow rate.
+function makeSweeper(post){
+  var dev=null,tried=false,soft=false,stop=false;
+  async function device(){if(tried)return dev;tried=true;try{if(typeof navigator!=="undefined"&&navigator.gpu&&typeof makeGPUEngine!=="undefined"){var ad=await navigator.gpu.requestAdapter({powerPreference:"high-performance"});
+    if(ad){var inf=ad.info||{};soft=!!(ad.isFallbackAdapter||/swiftshader|llvmpipe|software/i.test((inf.vendor||"")+" "+(inf.architecture||"")));if(!soft)dev=await ad.requestDevice({requiredLimits:{maxStorageBufferBindingSize:ad.limits.maxStorageBufferBindingSize,maxBufferSize:ad.limits.maxBufferSize}})}}}catch(e){dev=null}return dev}
+  // one run: settle, open the neck, then (endless sand) keep refilling from the top and fit the steady discharge rate
+  // after a warm-up; the standard error comes from the spread of the rate over four blocks of the measuring window
+  async function one(j,useG){
+    var E;if(useG&&await device()){E=makeGPUEngine(dev);E.cpu.seed(j.seed);E.init(j.opt);await E.settle(0.35);E.setGate(false)}
+    else{E=makeEngine();E.seed(j.seed);E.init(j.opt);E.settle(0.35);E.setGate(false)}
+    var N=E.N,rec=[],h=j.feed?1/30:0.05,fed=0,Hh=j.opt.H,T=j.feed?j.Tw+j.Tm:j.T;
+    while(E.t<T&&!stop){var pass=fed+E.countBelow();rec.push([E.t,pass]);if(!j.feed&&pass>0.4*N)break;
+      if(j.feed&&E.t>j.Tw&&rec.length>40&&pass===rec[rec.length-31][1])break;   // nothing passed for a second: jammed
+      if(E.advance)await E.advance(Math.max(1,Math.round(h/E.dt)));else E.run(h);if(j.feed)fed+=E.feed(0.4*Hh,80,60)}
+    if(E.destroy)E.destroy();
+    var last=rec[rec.length-1],Q,se=0;
+    function slope(q){var sx=0,sy=0,sxx=0,sxy=0,m=q.length;q.forEach(function(r){sx+=r[0];sy+=r[1];sxx+=r[0]*r[0];sxy+=r[0]*r[1]});return (m*sxy-sx*sy)/(m*sxx-sx*sx)}
+    if(j.feed){var w=rec.filter(function(r){return r[0]>=j.Tw});
+      if(w.length>12){Q=slope(w);var bl=[],nb=4,L=Math.floor(w.length/nb);for(var b=0;b<nb;b++)bl.push(slope(w.slice(b*L,(b+1)*L)));var mb=bl.reduce(function(a,c){return a+c},0)/nb,v=0;bl.forEach(function(c){v+=(c-mb)*(c-mb)});se=Math.sqrt(v/(nb-1)/nb)}
+      else{Q=0}}
+    else{var q=rec.filter(function(r){return r[1]>0.05*N&&r[1]<0.35*N});Q=q.length>4?slope(q):last[1]/Math.max(last[0],1e-9)}
+    return {Q:Math.max(0,Q),se:se,N:N,drained:last[1],t:last[0],jammed:j.feed?Q<=0.5:last[1]<0.05*N};
+  }
+  // ordinary-sand twin: same fill and settings with the magnetism off; posts the grains-passed series as it goes
+  async function series(d){var j=d.job,E;stop=false;
+    if(d.gpu&&await device()){E=makeGPUEngine(dev);E.cpu.seed(j.seed);E.init(j.opt);await E.settle(0.35);E.setGate(false)}else{E=makeEngine();E.seed(j.seed);E.init(j.opt);E.settle(0.35);E.setGate(false)}
+    var N=E.N,fed=0,buf=[],h=0.05,k=0;
+    while(E.t<j.T&&!stop){var p=fed+E.countBelow();buf.push([E.t,p]);if(!j.opt.feed&&N-E.countBelow()<=3)break;
+      if(buf.length>=20){post({type:"series",id:d.id,pts:buf});buf=[]}
+      for(k=0;k<(j.opt.feed?2:1);k++){var hh=j.opt.feed?1/30:h;if(E.advance)await E.advance(Math.max(1,Math.round(hh/E.dt)));else E.run(hh);if(j.opt.feed)fed+=E.feed(0.4*j.opt.H,80,60)}}
+    if(E.destroy)E.destroy();post({type:"series",id:d.id,pts:buf,done:true,N:N})}
+  async function msg(d){
+    if(d.cmd==="cancel"){stop=true;return}
+    if(d.cmd==="series"){series(d);return}
+    if(d.cmd!=="sweep")return;stop=false;
+    for(var i=0;i<d.jobs.length&&!stop;i++){var r=await one(d.jobs[i],d.gpu);r.x=d.jobs[i].x;r.rep=d.jobs[i].rep;r.i=d.jobs[i].i;r.id=d.id;r.type="sweep";post(r)}
+    post({type:"sweepdone",id:d.id,stopped:stop});
+  }
+  return {msg:msg};
+}
+var send,onRunnerMsg,useWorker=true,backend={gpu:false,name:""};
+(function(){
+  var src=$("engsrc").textContent+"\n"+$("gpusrc").textContent+"\n"+makeRunner.toString()+
+  "\nvar R=makeRunner(function(m,t){postMessage(m,t)});onmessage=function(e){R.msg(e.data)};"+
+  "var ch=new MessageChannel(),sched=false;ch.port1.onmessage=loop;function wk(){if(!sched){sched=true;ch.port2.postMessage(0)}}R.setWake(wk);"+
+  "function loop(){sched=false;var r=R.tick();if(r===true)wk();else if(r===\"wait\")setTimeout(function(){if(!sched)loop()},8);else setTimeout(function(){if(!sched)loop()},20)}loop();";
+  try{var w=new Worker(URL.createObjectURL(new Blob([src],{type:"text/javascript"})));w.onmessage=function(e){onRunnerMsg(e.data)};
+    w.onerror=function(){fallback()};send=function(m){w.postMessage(m)};}catch(err){fallback()}
+  function fallback(){useWorker=false;var R=makeRunner(function(m){setTimeout(function(){onRunnerMsg(m)},0)});send=function(m){R.msg(m)};
+    (function loop(){R.tick();setTimeout(loop,0)})();}
+})();
+// ---------------- controls ----------------
+var ctl={};
+function fmtNum(v,d){return (+v).toFixed(d)}
+function bindRange(id,fmt,cb){var el=$(id),o=$(id+"O");function upd(ev){ctl[id]=parseFloat(el.value);if(o)o.textContent=fmt(ctl[id]);if(cb&&ev)cb()}el.addEventListener("input",upd);upd();return upd}
+function rEff(){return is3()?1.25*ctl.r:ctl.r}
+function dpx(){return 2*rEff()}
+var updR=bindRange("r",function(v){var d=2*(is3()?1.25*v:v),G=GEOM[is3()?3:2];return d.toFixed(1)+" px · bulb "+Math.round(G.W/d)+" grains wide"},function(){rebuildSoon()});
+bindRange("poly",function(v){return "±"+Math.round(v*100)+"%"},function(){rebuildSoon()});
+bindRange("fill",function(v){return Math.round(v*100)+"%"},function(){rebuildSoon()});
+var updNeck=bindRange("neck",function(v){return v.toFixed(1)+" d = "+(v*dpx()).toFixed(0)+" px"},function(){var G=GEOM[geomDim()];prof=maker.profile($("shape").value,ctl.neck*dpx(),G.W,G.H);live({D:ctl.neck*dpx()});});
+bindRange("mu",function(v){return v.toFixed(2)},function(){live({mu:ctl.mu})});
+bindRange("muw",function(v){return v.toFixed(2)},function(){live({muw:ctl.muw})});
+bindRange("e",function(v){return v.toFixed(2)},function(){live({e:ctl.e})});
+bindRange("g",function(v){return v.toFixed(1)+"×"},function(){live({g:ctl.g});dots={}});
+bindRange("spd",function(v){return v+"×"},function(){send({cmd:"speed",v:simSpeed()})});
+function simSpeed(){return $("fast").checked?1e9:ctl.spd}
+bindRange("lsp",function(v){return mode==="cont"?(v*0.5).toFixed(1)+" mm":v+" grain diameters"},function(){if(mode==="cont")C.texture()});
+bindRange("dreal",function(v){return v.toFixed(2)+" mm"},function(){scaleNote();if(typeof magLive==="function")magLive()});
+$("shape").addEventListener("change",function(){rebuildSoon()});
+$("hist").addEventListener("change",function(){rebuildSoon()});$("stiff").addEventListener("change",function(){rebuildSoon()});
+$("lay").addEventListener("change",function(){if(mode==="cont")C.texture()});
+$("auto").addEventListener("change",function(e){auto=e.target.checked});
+var rbT=null;function rebuildSoon(){clearTimeout(rbT);rbT=setTimeout(rebuild,150)}
+function live(o){if(mode!=="cont")send({cmd:"live",opt:o})}
+// ---------------- magnetism ----------------
+var MAT={steel:{chi:1000,rho:7850},magnetite:{chi:3,rho:5000},nickel:{chi:600,rho:8900}};
+// with a magnet preset the slider sets the magnet's own surface field (0.1-1000 mT); the magnet (radius 0.15 bulb heights) sits with its
+// centre 0.2 bulb heights from the nearest glass wall, so the field at that wall is (0.15/0.2)^3 = 0.42 of the surface value (dipole fall-off)
+var MAGF=Math.pow(0.15/0.2,3);function isMagnet(){var pf=+$("fprof").value;return pf===2||pf===3}
+function magSurf(){var v=+$("bf").value;return v<=0?0:0.1*Math.pow(10,4*v)}
+function Bmt(){var v=+$("bf").value;if(isMagnet())return magSurf()*MAGF;return v<=0?0:0.1*Math.pow(10,3*v)}
+// magnetic Bond number (Sunday et al. 2024): strongest dipole attraction between two touching grains / grain weight
+function bondNo(){if(!$("magOn").checked)return 0;var m=MAT[$("mat").value],ce=3*m.chi/(m.chi+3),B=Bmt()/1000,d=ctl.dreal/1000;return ce*ce*B*B/(4*4e-7*Math.PI*m.rho*9.81*d)}
+function fieldDir(){var th=(+$("bth").value)*Math.PI/180,ph=is3()?(+$("bph").value)*Math.PI/180:0;return [Math.sin(th)*Math.cos(ph),Math.cos(th),Math.sin(th)*Math.sin(ph)]}
+function chiEff(){var m=MAT[$("mat").value];return 3*m.chi/(m.chi+3)}
+function ffr(){return 0.2*Math.pow(250,+$("ffr").value)}   // real Hz, 0.2-50
+function fieldOpt(){var rf=realFactor();return {prof:+$("fprof").value,G:+$("fG").value,mdist:0.2,tmode:+$("ftm").value,freq:ffr()*rf,Tramp:(+$("fram").value)/rf,chie:chiEff(),mutual:$("mutual").checked?1:0}}
+function mutE(){return $("mutual").checked?Math.min(3,1/Math.max(0.05,1-chiEff()*1.202/(6*0.857))):1}function mutK(){var e=mutE();return e*e}
+function magOpt(){var h=fieldDir();return Object.assign({Bo:bondNo(),hx:h[0],hy:h[1],hz:h[2]},fieldOpt())}
+function magFrac(){return +$("mfrac").value}
+function magUI(){var on=$("magOn").checked,bo=bondNo();$("magCtl").hidden=!on;$("bfRow").hidden=!on;$("bphRow").hidden=!is3();
+  $("bfO").textContent=isMagnet()?magSurf().toFixed(magSurf()<10?1:0)+" mT magnet ("+Bmt().toFixed(Bmt()<10?1:0)+" at glass)":Bmt().toFixed(Bmt()<1?2:1)+" mT";$("bfL").textContent=isMagnet()?"Magnet":"Field";$("bthO").textContent=$("bth").value+"°";var pf=+$("fprof").value,tm=+$("ftm").value;
+  $("fGRow").hidden=pf!==1&&pf!==4;$("fmdRow").hidden=true;$("ffrRow").hidden=!(tm>=1&&tm<=3);$("framRow").hidden=tm<4;$("p6").hidden=!on||(pf===0&&tm===0);
+  $("fGO").textContent=(+$("fG").value>0?"+":"")+Math.round(100*$("fG").value)+(pf===4?"% at the bulb wall":"% per bulb height");$("fGnote").textContent=pf===4?"Change in field strength from the axis to the bulb wall at neck height; positive means stronger near the walls, which pulls magnetic grains outward. Maxwell's equations force the strength to change the opposite way along the axis, so the field also weakens (positive) or strengthens (negative) toward the top and bottom of the glass.":"Relative change in field strength over one bulb height along the field direction; positive means stronger toward the bottom at 0°. The field stays curl- and divergence-free, and magnetic grains are pulled toward stronger field.";$("fmdO").textContent=(+$("fmd").value).toFixed(2)+" bulb heights";
+  $("ffrO").textContent=ffr().toFixed(ffr()<1?2:1)+" Hz";$("framO").textContent=(+$("fram").value).toFixed(2)+" s";
+  $("bth").disabled=pf>=2||tm===3;$("mfracO").textContent=Math.round(100*magFrac())+"%";$("p5").hidden=!on||magFrac()>=1||magFrac()<=0;$("bphO").textContent=$("bph").value+"°";
+  $("boNote").textContent=on?"Magnetic Bond number Bo = "+fmtBo(bo)+" for "+ctl.dreal+" mm grains: "+(bo<0.1?"too weak to matter.":bo<1?"weak cohesion, grains still flow freely.":bo<10?"grains stick into chains that still flow.":bo<50?"strong chains; a horizontal field can bridge the neck.":"very strong; expect clumps or a jammed neck.")+(10*bo*mutK()>($("stiff").checked?1000:370)?" Contacts are stiffened to "+Math.round(10*bo*mutK())+" so grains cannot be crushed into each other by the magnetic pull; this runs about "+Math.sqrt(10*bo*mutK()/($("stiff").checked?1000:370)).toFixed(1)+"x slower.":"")+($("mutual").checked?" With mutual induction each grain sees about "+mutE().toFixed(1)+"× the applied field inside a chain, so chain forces are up to "+(mutE()*mutE()).toFixed(1)+"× stronger than Bo alone suggests.":"")+" (Bo uses the 'each grain represents' size"+(isMagnet()?"; field taken at the glass wall nearest the magnet":+$("fprof").value===1?"; field taken at the neck":+$("fprof").value===4?"; field taken on the axis at the neck":"")+(+$("ftm").value>0?"; peak value":"")+".)":""}
+function fmtBo(b){return b<0.1?b.toFixed(3):b<10?b.toFixed(2):b.toFixed(0)}
+function magLive(){magUI();live(magOpt())}
+["bf","bth","bph","fG","fmd","ffr","fram"].forEach(function(id){$(id).addEventListener("input",magLive)});$("fprof").addEventListener("change",magLive);$("mutual").addEventListener("change",magLive);$("ftm").addEventListener("change",magLive);
+$("mfrac").addEventListener("input",function(){magUI();if(mode!=="cont")send({cmd:"magfrac",f:magFrac()});BMs=[]});$("mat").addEventListener("change",magLive);$("magOn").addEventListener("change",function(){magLive();if($("magOn").checked&&!REF.on)startRef()});
+var sweeper=null,SW={id:0,kind:"",pts:[],run:false};
+// several background workers share the runs of a sweep (one job each at a time)
+function sweepWorkers(){return engGPU?2:Math.max(1,Math.min(8,(navigator.hardwareConcurrency||4)-2))}
+function sweeperW(){if(sweeper)return sweeper;var src=$("engsrc").textContent+"\n"+$("gpusrc").textContent+"\n"+makeSweeper.toString()+"\nvar S=makeSweeper(function(m){postMessage(m)});onmessage=function(e){S.msg(e.data)};",url=null,pool=[],queue=[],cur=null;
+  try{url=URL.createObjectURL(new Blob([src],{type:"text/javascript"}))}catch(e){}
+  function mk(){var w;try{w=new Worker(url);w.onmessage=function(e){got(w,e.data)}}catch(err){var S=makeSweeper(function(m){setTimeout(function(){got(w,m)},0)});w={postMessage:function(m){S.msg(m)},terminate:function(){S.msg({cmd:"cancel"})}}}w.busy=false;return w}
+  function got(w,m){if(m.type==="sweepdone"){w.busy=false;feed();return}onSweep(m)}
+  function feed(){if(!cur)return;pool.forEach(function(w){if(!w.busy&&queue.length){w.busy=true;w.postMessage({cmd:"sweep",id:cur.id,jobs:[queue.shift()],gpu:cur.gpu})}});
+    if(!queue.length&&pool.every(function(w){return !w.busy})){var id=cur.id;cur=null;onSweep({type:"sweepdone",id:id})}}
+  sweeper={send:function(m){if(m.cmd==="cancel"){queue=[];pool.forEach(function(w){if(w.busy){w.terminate();w.dead=true}});pool=pool.filter(function(w){return !w.dead});if(cur){var id=cur.id;cur=null;onSweep({type:"sweepdone",id:id,stopped:true})}return}
+    queue=m.jobs.map(function(j,i){j.i=i;return j});cur={id:m.id,gpu:m.gpu};var want=sweepWorkers();while(pool.length<want)pool.push(mk());feed()}};
+  return sweeper}
+function sweepBase(){var dim=geomDim(),G=GEOM[dim],r=rEff();return {dim:dim,shape:$("shape").value,W:G.W,H:G.H,r:r,poly:ctl.poly,fill:ctl.fill,D:ctl.neck*2*r,mu:ctl.mu,muw:ctl.muw,e:ctl.e,g:ctl.g,
+  hist:$("hist").checked?1:0,K0:$("stiff").checked?1000:370,maxN:dim===3?2500:1500,mfrac:typeof magFrac==="function"?magFrac():1,...fieldOpt()}}
+// sweep quality: points per sweep, repeats per point (different random fills), steady-state measuring time and grain cap
+function swQual(){var q=$("sweepQ").value,dim=geomDim();
+  if(q==="quick")return {n:7,reps:1,feed:false,maxN:dim===3?2500:1500};
+  if(q==="full")return {n:16,reps:5,feed:true,Tw:dim===3?1.0:1.5,Tm:dim===3?2.5:5,maxN:dim===3?8000:5000};
+  return {n:11,reps:3,feed:true,Tw:dim===3?0.6:1.0,Tm:dim===3?1.5:3,maxN:dim===3?2500:1500}}
+function lin(a,b,n){var o=[];for(var i=0;i<n;i++)o.push(a+(b-a)*i/(n-1));return o}
+function geo(a,b,n){var o=[];for(var i=0;i<n;i++)o.push(a*Math.pow(b/a,i/(n-1)));return o}
+function startSweep(kind){
+  var Qy=swQual(),base=sweepBase(),jobs=[],h=fieldDir(),bo=bondNo(),dim=base.dim,T=dim===3?6:12,seed=(Math.random()*1e9)>>>0,i,xs=[];base.maxN=Qy.maxN;
+  if(kind==="B"){var bmax=Math.max(16,2*bo);xs=[0].concat(geo(bmax/128,bmax,Qy.n));
+    xs.forEach(function(b){jobs.push({x:b,opt:Object.assign({},base,{Bo:b,hx:h[0],hy:h[1],hz:h[2]})})})}
+  else if(kind==="D"){var b2=bo>0?bo:8;xs=lin(0,90,Qy.n<10?7:Qy.n<14?10:19);xs.forEach(function(deg){var th=deg*Math.PI/180,ph=is3()?(+$("bph").value)*Math.PI/180:0;
+      jobs.push({x:deg,opt:Object.assign({},base,{Bo:b2,hx:Math.sin(th)*Math.cos(ph),hy:Math.cos(th),hz:Math.sin(th)*Math.sin(ph)})})});SW.boD=b2}
+  else jobs=sweepJobs(kind,base,Qy.n);
+  // repeats with different random fills; every point of one repeat shares its fill, so trends are not hidden by fill noise
+  var all=[];for(var r=0;r<Qy.reps;r++)jobs.forEach(function(j){all.push({x:j.x,opt:j.opt,T:T,Tw:Qy.Tw,Tm:Qy.Tm,feed:Qy.feed,seed:(seed+7919*r)>>>0,rep:r})});
+  SW={id:SW.id+1,kind:kind,pts:[],run:true,n:all.length,reps:Qy.reps,boD:SW.boD,t0:performance.now(),q:Qy};$("swX").hidden=false;
+  sweeperW().send({cmd:"sweep",id:SW.id,jobs:all,gpu:engGPU});swText();plotSweep();
+}
+function onSweep(m){if(m.id!==SW.id)return;if(m.type==="sweep"){SW.pts.push(m)}else if(m.type==="sweepdone"){SW.run=false;$("swX").hidden=true}swText();plotSweep()}
+$("swB").addEventListener("click",function(){startSweep("B")});$("swF").addEventListener("click",function(){startSweep("F")});
+$("swG").addEventListener("click",function(){if(+$("fprof").value===0){$("swInfo").textContent="Choose a gradient or magnet field shape first.";return}startSweep("G")});
+$("swQ").addEventListener("click",function(){var tm=+$("ftm").value;if(!(tm>=1&&tm<=3)){$("swInfo").textContent="Choose AC, pulses or rotating time variation first.";return}startSweep("Q")});
+function sweepJobs(kind,base,n){var jobs=[],h=fieldDir(),bo=bondNo()>0?bondNo():8;SW.boD=bo;var big=n>8;
+  function add(x,o){jobs.push({x:x,opt:Object.assign({},base,{Bo:bo,hx:h[0],hy:h[1],hz:h[2]},o)})}
+  if(kind==="F")lin(0,1,big?11:6).forEach(function(f){add(f,{mfrac:f})});
+  if(kind==="G"){var pf=base.prof;if(pf===1||pf===4)lin(-1,1,big?9:6).forEach(function(g){add(g,{G:g})});
+    else if(pf>=2){var ms=magSurf()||100;geo(0.25,2.5,big?10:6).forEach(function(f){add(ms*f,{Bo:Math.min(2000,bo*f*f)})})}}
+  if(kind==="Q"){var rf=realFactor();geo(0.3,50,big?9:5).forEach(function(f){add(f,{freq:f*rf})})}
+  return jobs}
+// least squares y = a + b x + c x^2
+function quadfit(xs,ys){var S=[0,0,0,0,0],R=[0,0,0],i;for(i=0;i<xs.length;i++){var x=xs[i],p=1;for(var k=0;k<5;k++){S[k]+=p;p*=x}R[0]+=ys[i];R[1]+=ys[i]*x;R[2]+=ys[i]*x*x}
+  var M=[[S[0],S[1],S[2],R[0]],[S[1],S[2],S[3],R[1]],[S[2],S[3],S[4],R[2]]];for(var c=0;c<3;c++){var piv=c;for(var r=c+1;r<3;r++)if(Math.abs(M[r][c])>Math.abs(M[piv][c]))piv=r;var t=M[c];M[c]=M[piv];M[piv]=t;
+    for(r=0;r<3;r++){if(r===c)continue;var f=M[r][c]/M[c][c];for(k=c;k<4;k++)M[r][k]-=f*M[c][k]}}
+  var a=M[0][3]/M[0][0],b=M[1][3]/M[1][1],cc=M[2][3]/M[2][2];return {a:a,b:b,c:cc,r2:r2(ys,xs.map(function(x){return a+b*x+cc*x*x}))}}
+function swTextX(k,xs,ys){
+  if(k==="G"){var pf=+$("fprof").value;if(pf===1||pf===4){var L1=linfit(xs,ys);SWFIT={L:L1,k:"G"};return "At Bo = "+fmtBo(SW.boD)+": Q = "+L1.a.toFixed(1)+" "+(L1.b<0?"− ":"+ ")+Math.abs(L1.b).toFixed(1)+"·G grains/s (R² = "+L1.r2.toFixed(3)+"), G = "+(pf===4?"relative change in field strength from the axis to the bulb wall (positive = stronger at the walls, pulling magnetic grains outward).":"relative change in field over one bulb height along the field direction (positive = stronger downward at 0°, which pulls magnetic grains down).")}
+    var S2=satfit(xs,ys);SWFIT={S:S2,k:"M",L:linfit(xs,ys)};return "Magnet strength (field at its surface; the glass wall sees 0.42 of it): Q = "+S2.Q0.toFixed(1)+" / (1 + (B_s/"+S2.Bh.toFixed(0)+" mT)^"+S2.p.toFixed(1)+") grains/s (R² = "+S2.r2.toFixed(3)+"); the flow halves for a magnet of about "+S2.Bh.toFixed(0)+" mT. Magnetic forces scale as B², so the exponent is about twice that of the Bond-number fit."}
+  if(k==="Q"){var lx=xs.map(function(x){return Math.log10(x)}),L3=linfit(lx,ys);SWFIT={L:L3,k:"Q"};return "At peak Bo = "+fmtBo(SW.boD)+": Q = "+L3.a.toFixed(1)+" "+(L3.b<0?"− ":"+ ")+Math.abs(L3.b).toFixed(1)+"·log₁₀(f / 1 Hz) grains/s (R² = "+L3.r2.toFixed(3)+"), f in real-glass hertz."}
+  if(k!=="F")return "";var L=linfit(xs,ys),Q=quadfit(xs,ys);SWFIT={L:L,Q:Q};
+  return "At Bo = "+fmtBo(SW.boD)+": linear Q = "+L.a.toFixed(1)+" "+(L.b<0?"− ":"+ ")+Math.abs(L.b).toFixed(1)+"·φ (R² = "+L.r2.toFixed(3)+"); quadratic Q = "+Q.a.toFixed(1)+" "+(Q.b<0?"− ":"+ ")+Math.abs(Q.b).toFixed(1)+"·φ "+(Q.c<0?"− ":"+ ")+Math.abs(Q.c).toFixed(1)+"·φ² (R² = "+Q.r2.toFixed(3)+"), φ = magnetic fraction. "+
+    (Q.c<0&&Q.r2-L.r2>0.01?"The drop steepens as the magnetic share grows (curvature raises R² from "+L.r2.toFixed(3)+" to "+Q.r2.toFixed(3)+"), consistent with cohesion needing two magnetic grains in contact, whose chance grows as φ². "+(SW.reps>1?"":"With one run per point the split between the φ and φ² terms is uncertain.")+"":"No clear curvature: the flow falls roughly in proportion to the magnetic share.")}
+function plotSweepX(k,pts){var S=[],i;
+  if(k==="G"&&SWFIT&&SWFIT.k==="G"){var gx=[],gy=[];for(i=0;i<=40;i++){var g=-1+i/20;gx.push(g);gy.push(SWFIT.L.a+SWFIT.L.b*g)}return {xm:1,xl:"gradient G (shifted: −1 → 0, +1 → 2)",title:"Flow rate vs field gradient",S:[{x:gx.map(function(v){return v+1}),y:gy,col:"acc"}],shift:1}}
+  if(k==="G"){var xm=pts.length?Math.max.apply(null,pts.map(function(p){return p.x}))*1.05:1000,S3=[];if(SWFIT&&SWFIT.k==="M"){var mx=[],my=[];for(i=0;i<=100;i++){var xv=xm*i/100;mx.push(xv);my.push(SWFIT.S.Q0/(1+Math.pow(xv/SWFIT.S.Bh,SWFIT.S.p)))}S3=[{x:mx,y:my,col:"acc"}]}
+    return {xm:xm,xl:"magnet surface field (mT)",title:"Flow rate vs magnet strength: sim (dots), saturating fit",S:S3}}
+  if(k==="Q")return {xm:1,xl:"log₁₀ frequency (Hz) + 1",title:"Flow rate vs field frequency: sim (dots), fit linear in log f",S:SWFIT&&SWFIT.k==="Q"?[{x:[0,2],y:[SWFIT.L.a-SWFIT.L.b,SWFIT.L.a+SWFIT.L.b],col:"acc"}]:[],logx:1}
+  if(SWFIT&&SWFIT.Q){var fx=[],fy=[],fl=[];for(var i=0;i<=50;i++){var x=i/50;fx.push(x);fy.push(SWFIT.Q.a+SWFIT.Q.b*x+SWFIT.Q.c*x*x);fl.push(SWFIT.L.a+SWFIT.L.b*x)}S=[{x:fx,y:fy,col:"acc"},{x:fx,y:fl,dash:1}]}
+  return {xm:1,xl:"magnetic fraction φ",title:"Flow rate vs magnetic fraction: sim (dots), quadratic (solid), linear (dashed)",S:S}}$("swD").addEventListener("click",function(){startSweep("D")});
+$("swX").addEventListener("click",function(){if(sweeper)sweeper.send({cmd:"cancel"})});
+// ---- regression ----
+function linfit(xs,ys){var n=xs.length,sx=0,sy=0,sxx=0,sxy=0,i;for(i=0;i<n;i++){sx+=xs[i];sy+=ys[i];sxx+=xs[i]*xs[i];sxy+=xs[i]*ys[i]}var b=(n*sxy-sx*sy)/(n*sxx-sx*sx||1),a=(sy-b*sx)/n;return {a:a,b:b,r2:r2(ys,xs.map(function(x){return a+b*x}))}}
+function r2(y,f){var m=y.reduce(function(a,b){return a+b},0)/y.length,ss=0,se=0;for(var i=0;i<y.length;i++){ss+=(y[i]-m)*(y[i]-m);se+=(y[i]-f[i])*(y[i]-f[i])}return ss>0?1-se/ss:1}
+// saturating law Q = Q0 / (1 + (Bo/Bh)^p): grid search over Bh and p, Q0 by least squares
+function satfit(xs,ys){var best=null;for(var a=-2;a<=3.0001;a+=0.02){var Bh=Math.pow(10,a);for(var p=0.5;p<=6.0001;p+=0.1){var f=xs.map(function(x){return 1/(1+Math.pow(x/Bh,p))}),num=0,den=0;
+    for(var i=0;i<xs.length;i++){num+=f[i]*ys[i];den+=f[i]*f[i]}var Q0=num/den,se=0;for(i=0;i<xs.length;i++)se+=Math.pow(ys[i]-Q0*f[i],2);if(!best||se<best.se)best={Q0:Q0,Bh:Bh,p:p,se:se}}}
+  best.r2=r2(ys,xs.map(function(x){return best.Q0/(1+Math.pow(x/best.Bh,best.p))}));return best}
+function cosfit(xs,ys){var c=xs.map(function(x){return Math.cos(2*x*Math.PI/180)}),L=linfit(c,ys);return {A:L.a,B:L.b,r2:L.r2}}
+var SWFIT=null;
+// mean flow per sweep point over its repeats; error = standard deviation of the repeats (or the run's own standard error if there is one repeat)
+function aggPts(){var g={},out=[];SW.pts.forEach(function(p){(g[p.x]||(g[p.x]=[])).push(p)});
+  for(var x in g){var a=g[x],m=a.reduce(function(s,p){return s+p.Q},0)/a.length,v=0;a.forEach(function(p){v+=(p.Q-m)*(p.Q-m)});
+    var e=a.length>1?Math.sqrt(v/(a.length-1)):(a[0].se||0);out.push({x:+x,Q:m,err:e,n:a.length,jammed:a.every(function(p){return p.jammed})})}
+  return out.sort(function(a,b){return a.x-b.x})}
+function swText(){
+  var k=SW.kind,pts=aggPts(),xs=pts.map(function(p){return p.x}),ys=pts.map(function(p){return p.Q}),t="";
+  var done=SW.pts.length,el=(performance.now()-(SW.t0||0))/1000;$("swInfo").textContent=SW.run?"Running: "+done+" of "+SW.n+" runs done ("+sweepWorkers()+" in parallel"+(done>0?", about "+mmss(el/done*(SW.n-done))+" left":"")+")…":"Sweep "+(done<SW.n?"stopped":"finished")+": "+done+" runs, "+pts.length+" points"+(SW.reps>1?" × "+SW.reps+" repeats (error bars: ±1 standard deviation between repeats)":"")+" in "+mmss(el)+".";
+  SWFIT=null;if(pts.length<3){$("swFit").textContent="";return}
+  if(k==="B"){var L=linfit(xs,ys),S=satfit(xs,ys);SWFIT={L:L,S:S};
+    t="Linear fit: Q = "+L.a.toFixed(1)+" "+(L.b<0?"− ":"+ ")+Math.abs(L.b).toFixed(2)+"·Bo grains/s (R² = "+L.r2.toFixed(3)+"). Saturating fit: Q = "+S.Q0.toFixed(1)+" / (1 + (Bo/"+fmtBo(S.Bh)+")^"+S.p.toFixed(1)+") (R² = "+S.r2.toFixed(3)+"); flow halves at Bo ≈ "+fmtBo(S.Bh)+".";
+    var jam=pts.filter(function(p){return p.jammed});if(jam.length)t+=" Jammed at Bo ≥ "+fmtBo(jam[0].x)+".";}
+  else if(k==="D"){var C=cosfit(xs,ys);SWFIT={C:C};t="At Bo = "+fmtBo(SW.boD||0)+": Q(θ) = "+C.A.toFixed(1)+" "+(C.B<0?"− ":"+ ")+Math.abs(C.B).toFixed(1)+"·cos 2θ grains/s (R² = "+C.r2.toFixed(3)+"). Vertical field "+(C.A+C.B).toFixed(0)+", horizontal "+(C.A-C.B).toFixed(0)+" grains/s.";}
+  else if(typeof swTextX==="function")t=swTextX(k,xs,ys,pts);
+  $("swFit").textContent=t;if(!SW.run)setCal();
+}
+function plotSweep(){
+  var c=$("p4");if(!c.clientWidth)return;var pts=aggPts(),k=SW.kind,dots=pts.map(function(p){return [p.x,Math.max(0,p.Q),p.err]}),S=[],xm=1,xl="",title="";
+  if(k==="B"){xm=pts.length?Math.max.apply(null,pts.map(function(p){return p.x}))*1.05:16;xl="magnetic Bond number Bo";title="Flow rate vs field strength: sim (dots), saturating fit (solid), linear (dashed)";
+    if(SWFIT){var fx=[],fs=[],fl=[];for(var i=0;i<=100;i++){var x=xm*i/100;fx.push(x);fs.push(SWFIT.S.Q0/(1+Math.pow(x/SWFIT.S.Bh,SWFIT.S.p)));fl.push(Math.max(0,SWFIT.L.a+SWFIT.L.b*x))}S=[{x:fx,y:fs,col:"acc"},{x:fx,y:fl,dash:1}]}}
+  else if(k==="D"){xm=90;xl="field angle from vertical (degrees)";title="Flow rate vs field direction: sim (dots), A + B·cos 2θ fit";
+    if(SWFIT){var gx=[],gy=[];for(var q=0;q<=90;q++){gx.push(q);gy.push(SWFIT.C.A+SWFIT.C.B*Math.cos(2*q*Math.PI/180))}S=[{x:gx,y:gy,col:"acc"}]}}
+  else if(typeof plotSweepX==="function"){var o=plotSweepX(k,pts);xm=o.xm;xl=o.xl;title=o.title;S=o.S;
+    if(o.shift){dots=dots.map(function(d){return [d[0]+1,d[1],d[2]]});xm=2}if(o.logx){dots=dots.map(function(d){return [Math.log10(d[0])+1,d[1],d[2]]});xm=2}}
+  if(!k){title="Run a sweep to see how the flow responds to the field";xl="";}
+  plot(c,S,{xmax:xm,xl:xl,title:title,dots:dots,ymin:5});
+}
+// ---------------- reading the field from the hourglass (inverse calibration) ----------------
+// Bo = chi_eff^2 B^2 / (4 mu0 rho g d)  ->  B = sqrt(4 mu0 rho g d Bo) / chi_eff
+function boToMT(bo){var m=MAT[$("mat").value],ce=3*m.chi/(m.chi+3);return 1000*Math.sqrt(Math.max(0,bo)*4*4e-7*Math.PI*m.rho*9.81*ctl.dreal/1000)/ce}
+var CAL=null;
+function setCal(){var k=SW.kind,pts=aggPts();if(pts.length<4||!SWFIT){return}
+  CAL={kind:k,pts:pts,fit:SWFIT,mat:$("mat").value,d:ctl.dreal,dir:+$("bth").value,boD:SW.boD,reps:SW.reps}}
+// live ratio of this run's flow to the ordinary-sand twin over the middle of the overlap
+function liveRatio(){var D=refDev(),q1=0,q2=0,n=0;for(var i=Math.floor(D.t.length*0.15);i<Math.floor(D.t.length*0.85);i++){q1+=D.qm[i];q2+=D.qr[i];n++}return n>5&&q2>0?q1/q2:null}
+function plotInv(){var c=$("p9");if(c.hidden||!c.clientWidth)return;var el=$("invInfo");
+  if(!CAL){plot(c,[],{xmax:1,xl:"",title:"Run a sweep to calibrate the hourglass as a magnetometer"});el.textContent="";return}
+  var k=CAL.kind,F=CAL.fit,r,i,cx=[],cy=[],dots=[],txt="",live=liveRatio(),mk=[];
+  if(k==="B"||F.k==="M"){var isM=F.k==="M",cv=isM?function(v){return v}:boToMT,S=F.S,Bh=cv(S.Bh),q0=S.Q0,ex=isM?S.p:2*S.p;
+    // inverse of Q/Q0 = 1/(1+(B/Bh)^(2p)): B = Bh (Q0/Q - 1)^(1/2p)
+    function inv(rr){return rr>=1?0:Bh*Math.pow(1/rr-1,1/ex)}
+    for(i=1;i<=99;i++){r=i/100;cx.push(r);cy.push(inv(r))}
+    CAL.pts.forEach(function(p){if(p.Q>0){var rr=p.Q/q0,bm=cv(p.x),e=p.err/q0,db=Math.abs(inv(Math.min(0.995,rr+e/2))-inv(Math.min(0.995,Math.max(0.005,rr-e/2))));dots.push([Math.min(1.1,rr),bm,db])}});
+    var ym=Math.max.apply(null,dots.map(function(d){return d[1]}))*1.15,kx=[],ky=[];for(i=0;i<cx.length;i++)if(cy[i]<=ym){kx.push(cx[i]);ky.push(cy[i])}cx=kx;cy=ky;
+    var s0=CAL.pts[0].x===0&&CAL.pts[0].err>0?CAL.pts[0].err/q0:0.03,bmin=inv(1-2*s0);
+    txt=(isM?"Calibration from the magnet-strength sweep, in terms of the magnet's surface field (":"Calibration from the strength sweep (")+CAL.mat+", "+CAL.d+" mm grains, "+(isM?"magnet preset":"field "+CAL.dir+"° from vertical")+"): Q/Q₀ = 1 / (1 + (B/B½)^"+ex.toFixed(1)+"), so B = B½·(Q₀/Q − 1)^(1/"+ex.toFixed(1)+") with B½ = "+Bh.toFixed(1)+" mT. "+
+      "The emptying time scales the other way: P/P₀ = Q₀/Q, so B = B½·(P/P₀ − 1)^(1/"+ex.toFixed(1)+"): a glass that takes twice as long to empty sits in about "+Bh.toFixed(1)+" mT, and one 10% slower in about "+inv(1/1.1).toFixed(1)+" mT. "+
+      "Run-to-run scatter at zero field is ±"+(100*s0).toFixed(1)+"% of the flow, so the smallest field this glass can detect (a 2σ drop) is about "+bmin.toFixed(1)+" mT. Above about "+inv(0.05).toFixed(0)+" mT the flow is under 5% of normal and the reading saturates.";
+    if(live!=null&&$("magOn").checked&&+$("ftm").value===0&&(isM?isMagnet():+$("fprof").value===0)){var bi=inv(Math.min(0.999,live));mk.push([Math.min(1.1,live),Math.min(bi,ym)]);
+      txt+=" This run: flow "+(100*live).toFixed(0)+"% of the ordinary-sand twin → inferred "+bi.toFixed(1)+" mT (set: "+(isM?magSurf():Bmt()).toFixed(1)+" mT"+(Math.abs(+$("bth").value-CAL.dir)>2?"; note the field direction differs from the calibration":"")+").";}
+    plot(c,[{x:cx,y:cy,col:"acc"}],{xmax:1.1,xl:"flow rate relative to ordinary sand, Q/Q₀  (= P₀/P, emptying-time ratio)",title:"Field inferred from flow: calibration (line), sweep points, this run (ring)",dots:dots,marks:mk,ymin:1});}
+  else if(k==="D"){var C=F.C;
+    function th(q){var c2=(q-C.A)/C.B;if(c2>1||c2<-1)return null;return 0.5*Math.acos(c2)*180/Math.PI}
+    var lo=Math.min(C.A-Math.abs(C.B),C.A+Math.abs(C.B)),hi=Math.max(C.A-Math.abs(C.B),C.A+Math.abs(C.B));for(i=0;i<=100;i++){var q=lo+(hi-lo)*i/100,v=th(q);if(v!=null){cx.push(q);cy.push(v)}}
+    CAL.pts.forEach(function(p){dots.push([p.Q,p.x,0])});
+    txt="Calibration from the direction sweep (Bo = "+fmtBo(CAL.boD)+", "+boToMT(CAL.boD).toFixed(1)+" mT): Q(θ) = A + B·cos 2θ with A = "+C.A.toFixed(1)+", B = "+C.B.toFixed(1)+" grains/s, so θ = ½·arccos((Q − A)/B). The angle is found only up to its mirror image (θ and 180° − θ give the same flow), because induced dipoles only care about the field's axis. Sensitivity is highest near 45° and vanishes at 0° and 90°, where the curve is flat.";
+    plot(c,[{x:cx,y:cy,col:"acc"}],{xmax:hi*1.1,xl:"flow rate Q (grains/s)",title:"Field angle inferred from flow (degrees from vertical)",dots:dots,ymin:90});}
+  else if(F&&F.L){var L=F.L,lab=k==="G"?(F.k==="G"?"gradient G":"magnet surface field (mT)"):k==="Q"?"log₁₀ f (Hz)":"magnetic fraction φ";
+    CAL.pts.forEach(function(p){var xv=k==="Q"?Math.log10(p.x):p.x;dots.push([p.Q,xv,0])});var qs=CAL.pts.map(function(p){return p.Q}),qmin=Math.min.apply(null,qs),qmax=Math.max.apply(null,qs);
+    if(F.Q&&k==="F"){var Qf=F.Q;for(i=0;i<=60;i++){var ph=i/60;cx.push(Qf.a+Qf.b*ph+Qf.c*ph*ph);cy.push(ph)}}
+    else if(Math.abs(L.b)>1e-9){for(i=0;i<=40;i++){var qq=qmin+(qmax-qmin)*i/40;cx.push(qq);cy.push((qq-L.a)/L.b)}}
+    txt="Inverse of the sweep fit: "+lab+" = (Q − "+L.a.toFixed(1)+") / "+L.b.toFixed(2)+(k==="F"?" (line: inverse of the quadratic fit)":"")+". Read the flow rate on the horizontal axis to estimate the "+lab+".";
+    var ylo=Math.min.apply(null,cy.concat(dots.map(function(d){return d[1]})));plot(c,[{x:cx,y:cy.map(function(v){return v-Math.min(0,ylo)}),col:"acc"}],{xmax:qmax*1.1,xl:"flow rate Q (grains/s)",title:lab+" inferred from flow"+(ylo<0?" (shifted by "+(-ylo).toFixed(2)+")":""),dots:dots.map(function(d){return [d[0],d[1]-Math.min(0,ylo),0]}),ymin:0.1});}
+  el.textContent=txt}
+// ---------------- comparison with ordinary sand ----------------
+// A background twin of the current run with the magnetism switched off (same fill, same glass, same contact settings).
+var REF={id:0,t:[],b:[],done:false,on:false},refW=null;
+function refWorker(){if(refW)return refW;var src=$("engsrc").textContent+"\n"+$("gpusrc").textContent+"\n"+makeSweeper.toString()+"\nvar S=makeSweeper(function(m){postMessage(m)});onmessage=function(e){S.msg(e.data)};";
+  try{var w=new Worker(URL.createObjectURL(new Blob([src],{type:"text/javascript"})));w.onmessage=function(e){onRef(e.data)};refW={send:function(m){w.postMessage(m)},kill:function(){w.terminate();refW=null}}}
+  catch(err){var S=makeSweeper(function(m){setTimeout(function(){onRef(m)},0)});refW={send:function(m){S.msg(m)},kill:function(){S.msg({cmd:"cancel"});refW=null}}}return refW}
+function startRef(){if(refW)refW.kill();REF={id:REF.id+1,t:[],b:[],done:false,on:false,N:0};if(!$("magOn").checked||bondNo()<=0||!runOpt||mode==="cont")return;
+  var o=Object.assign({},runOpt,{Bo:0,prof:0,tmode:0}),dim=o.dim;REF.on=true;REF.rid=runId;
+  refWorker().send({cmd:"series",id:REF.id,gpu:engGPU,job:{opt:o,seed:runSeed,T:o.feed?(dim===3?10:25):(dim===3?40:90)}})}
+function onRef(m){if(m.id!==REF.id)return;m.pts.forEach(function(p){REF.t.push(p[0]);REF.b.push(p[1])});if(m.done){REF.done=true;REF.N=m.N}}
+function interp(ts,ys,t){var n=ts.length;if(!n||t<ts[0]||t>ts[n-1])return null;var lo=0,hi=n-1;while(hi-lo>1){var mid=(lo+hi)>>1;if(ts[mid]<=t)lo=mid;else hi=mid}var f=(t-ts[lo])/((ts[hi]-ts[lo])||1);return ys[lo]+f*(ys[hi]-ys[lo])}
+// flow rates of both runs over 1 s windows on a common time grid, and their relative difference
+function refDev(){var out={t:[],qm:[],qr:[],dev:[]};if(REF.t.length<25||T.length<12)return out;var tmax=Math.min(T[T.length-1],REF.t[REF.t.length-1])-0.5,peak=0,t;
+  for(t=0.6;t<=tmax;t+=0.1){var qm=interp(T,B,t+0.5)-interp(T,B,t-0.5),qr=interp(REF.t,REF.b,t+0.5)-interp(REF.t,REF.b,t-0.5);out.t.push(t);out.qm.push(qm);out.qr.push(qr);if(qr>peak)peak=qr}
+  for(var i=0;i<out.t.length;i++)out.dev.push(out.qr[i]>0.15*peak?100*(out.qm[i]/out.qr[i]-1):(out.qm[i]>0.15*peak?100:0));return out}
+function plotRef(){var c7=$("p7"),c8=$("p8");if(c7.hidden||!c7.clientWidth)return;
+  var xm=Math.max(5,T.length?T[T.length-1]:5),fd=$("feed").checked;
+  plot(c7,[{x:T,y:B,col:"acc"},{x:REF.t,y:REF.b,dash:1}],{xmax:xm,xl:"simulated time (s)",title:"Grains through the neck: magnetic (solid) vs ordinary sand (dashed)"});
+  var D=refDev();plot(c8,[{x:D.t,y:D.dev,col:"acc"},{x:[0,xm],y:[0,0],dash:1}],{xmax:xm,xl:"simulated time (s)",title:"Flow-rate deviation from ordinary sand (%), 1 s windows",neg:1,sym:1,ymin:10});
+  var txt="";if(D.t.length>10){var a=0,n=0,q1=0,q2=0;for(var i=Math.floor(D.t.length*0.15);i<Math.floor(D.t.length*0.85);i++){q1+=D.qm[i];q2+=D.qr[i];n++}
+    if(n&&q2>0)txt="Over the middle 70% of the overlap the flow is "+fmtPct(q1/q2-1)+" relative to ordinary sand ("+(q1/n).toFixed(0)+" vs "+(q2/n).toFixed(0)+" grains/s).";
+    if(!fd&&REF.done&&snap&&snap.n-snap.below<=3){var te=T[T.length-1],tr=REF.t[REF.t.length-1];txt+=" Emptying took "+mmss(te)+" against "+mmss(tr)+" for ordinary sand ("+fmtPct(te/tr-1)+", real glass "+mmss(te*realFactor())+" vs "+mmss(tr*realFactor())+").";}
+    else if(!fd&&REF.done){txt+=" Ordinary sand emptied in "+mmss(REF.t[REF.t.length-1])+" ("+mmss(REF.t[REF.t.length-1]*realFactor())+" real).";}}
+  else txt=REF.on?"Running the ordinary-sand twin in the background…":"Switch the field on and press Reset to compare with ordinary sand.";
+  $("refInfo").textContent=txt}
+function fmtPct(f){return (f>=0?"+":"−")+Math.abs(100*f).toFixed(1)+"%"}
+// ---------------- DEM state on the main thread ----------------
+var runSeed=0,runOpt=null,APdone=false,runId=0,snap=null,demN=0,T=[],B=[],TH=[],RM=[],RT=[],thCount=0,topInit=0,dots={},rtv=1,status="";
+var prof=null,maker=makeEngine();
+function geomDim(){return is3()?3:2}
+function is3(){return mode==="3d"||mode==="fine"}
+function backendChoice(){return mode==="fine"&&backend.gpu?"gpu":$("backend").value}
+// bigger grain limits only once the GPU has been measured faster here (or is forced)
+var gpuWins=false;function useGPU(){return backend.gpu&&(mode==="fine"||backendChoice()==="gpu"||(backendChoice()==="auto"&&gpuWins))}
+var engGPU=false,lastBench=null,lastGP=null;function engineNote(g,name){if(g!==null)engGPU=g;var b=lastBench,f=function(v){return v>=10?v.toFixed(0):v>=1?v.toFixed(1):v.toFixed(2)},t;
+  if(!backend.gpu)t="WebGPU is not available in this browser, so the simulation runs on the CPU in a background thread.";
+  else if(b&&b.cpu>0&&b.gpu>0)t="Measured on this device with "+b.N+" grains: CPU "+f(b.cpu)+", GPU ("+(name||backend.name)+") "+f(b.gpu)+" simulated seconds per second. Using the "+(engGPU?"GPU":"CPU")+(b.choice==="auto"?" because it is "+(engGPU?f(b.gpu/b.cpu)+"× faster.":"as fast or faster"+(b.gpu>b.cpu?" (the GPU must win by 15% to be used).":".")):" as you chose.");
+  else t=engGPU?"Running on the GPU ("+(name||backend.name)+").":"Running on the CPU.";
+  if(lastGP)t+=" GPU reporting delay "+lastGP.L.toFixed(0)+" ms, "+(lastGP.c*1000).toFixed(0)+" µs per step; batches of "+lastGP.n+" steps, "+lastGP.inq+" queued.";
+  $("engine").textContent=t;}
+function rebuild(){
+  APdone=false;if(paused&&$("autopause").checked)setPaused(false);
+  if(mode==="cont"){C.rebuild();return}
+  var dim=geomDim(),G=GEOM[dim],r=rEff();
+  prof=maker.profile($("shape").value,ctl.neck*2*r,G.W,G.H);
+  var opt={dim:dim,shape:$("shape").value,W:G.W,H:G.H,r:r,poly:ctl.poly,fill:ctl.fill,D:ctl.neck*2*r,mu:ctl.mu,muw:ctl.muw,e:ctl.e,g:ctl.g,
+    hist:$("hist").checked?1:0,K0:$("stiff").checked?1000:370,Bo:bondNo(),hx:fieldDir()[0],hy:fieldDir()[1],hz:fieldDir()[2],mfrac:magFrac(),prof:fieldOpt().prof,G:fieldOpt().G,mdist:fieldOpt().mdist,tmode:fieldOpt().tmode,freq:fieldOpt().freq,Tramp:fieldOpt().Tramp,chie:fieldOpt().chie,mutual:fieldOpt().mutual,feed:$("feed").checked,maxN:mode==="fine"?400000:useGPU()?(dim===3?150000:300000):(dim===3?25000:40000)};
+  snap=null;reqSnap=false;SNQ=[];PB=null;BMs=[];T=[];B=[];TH=[];RM=[];RT=[];thCount=0;dots={};status="Settling the sand…";
+  runId++;if(REP.on)stopReplay();runSeed=(Math.random()*1e9)>>>0;runOpt=opt;send({cmd:"init",opt:opt,rid:runId,backend:backendChoice(),seed:runSeed});startRef();recReset();send({cmd:"speed",v:simSpeed()});send({cmd:"run",on:!paused});
+  updR();updNeck();scaleNote();
+}
+onRunnerMsg=function(m){
+  if(m.type==="status"){status=m.text;$("cmp").textContent=status}
+  else if(m.type==="ready"){demN=m.N;topInit=m.N;status="";if(m.bench&&m.bench.gpu>0&&m.bench.cpu>0)gpuWins=m.bench.gpu>1.15*m.bench.cpu;lastBench=m.bench;lastGP=m.gp||null;engineNote(m.gpu,m.gpuName);}
+  else if(m.type==="backend"){backend={gpu:m.gpu,name:m.name,soft:m.soft};engineNote(null);}
+  else if(m.type==="snap"){if(m.rid!==runId){if(!m.rec)reqSnap=false;return}if(mode==="cont")return;
+    if(m.rec)recAdd(m);else reqSnap=false;
+    if(!REP.on){if(m.stream&&!m.rec){SNQ.push(m);if(SNQ.length>90)SNQ.shift()}else if(!m.rec||!SNQ.length){snap=m;SNQ=[];PB=null}}rtv=m.rtv;
+    for(var i=0;i<m.samples.length;i++)addSample(m.samples[i][0],m.samples[i][1],m.samples[i][2]);}
+};
+var reqSnap=false,SNQ=[],PB=null;
+// Streamed GPU pictures arrive in bursts (the browser reports finished GPU work in batches). Play them back on a steady
+// clock running at the simulation speed, kept a little behind the newest picture (about 1.5 burst gaps) so it never stalls.
+function playStream(dt){if(!SNQ.length)return;var newest=SNQ[SNQ.length-1].t,sp=$("fast").checked?0:ctl.spd*Math.min(1,rtv||1);
+  if(!PB)PB={t:SNQ[0].t,gap:0.05,lastT:newest,lastW:performance.now()};
+  var w=performance.now();if(newest>PB.lastT){var g=(w-PB.lastW)/1000;PB.gap=0.9*PB.gap+0.1*Math.min(0.5,g);PB.lastT=newest;PB.lastW=w}
+  var D=Math.max(0.03,1.5*PB.gap)*(sp||1);
+  if(!sp)PB.t=newest;else{PB.t+=dt*sp;var lag=newest-PB.t;if(lag>3*D||lag<0)PB.t=newest-D;else PB.t+=(lag-D)*Math.min(1,dt*2)}
+  var k=0;while(k+1<SNQ.length&&SNQ[k+1].t<=PB.t)k++;snap=SNQ[k];SNQ.splice(0,k)}
+// ---------------- recording and replay ----------------
+var REC={frames:[],t:[],below:[],pass:[],n:0,dim:2,rad:null,s0:null,bytes:0,fps:30,limit:3e8,rid:-1},REP={on:false,t:0,rate:1,paused:false};
+function recReset(){REP.done=false;REC.loaded=false;REC.frames=[];REC.t=[];REC.below=[];REC.pass=[];REC.bytes=0;REC.fps=30;REC.rid=runId;REC.rad=null;send({cmd:"rec",on:$("rec").checked,fps:REC.fps});recUI()}
+function recAdd(m){
+  if(REC.loaded)return;   // a recording loaded from a file is kept until Reset
+  if(REC.rid!==m.rid){REC.frames=[];REC.t=[];REC.below=[];REC.pass=[];REC.bytes=0;REC.rid=m.rid;REC.rad=null}
+  if(!REC.rad){REC.n=m.n;REC.dim=m.dim;REC.rad=Float32Array.from(m.rad);REC.s0=Float32Array.from(m.s0)}REC.chi=m.chi;
+  if(REC.t.length&&m.t<=REC.t[REC.t.length-1]+1e-6)return;
+  var k=m.dim===3?3:2,n=m.n,q=new Int16Array(n*k+(m.dim===3?Math.ceil(n/2):0)),i;
+  for(i=0;i<n*k;i++)q[i]=Math.round(m.pos[i]*8);
+  if(m.dim===3){var sp=new Uint8Array(q.buffer,n*k*2,n);for(i=0;i<n;i++)sp[i]=Math.min(255,m.sp[i]/2)}
+  REC.frames.push(q);REC.t.push(m.t);REC.below.push(m.below);REC.pass.push(m.passed);REC.bytes+=q.byteLength;
+  if(REC.bytes>REC.limit){var f=[],t=[],b=[],pp=[];REC.bytes=0;for(i=0;i<REC.frames.length;i+=2){f.push(REC.frames[i]);t.push(REC.t[i]);b.push(REC.below[i]);pp.push(REC.pass[i]);REC.bytes+=REC.frames[i].byteLength}
+    REC.frames=f;REC.t=t;REC.below=b;REC.pass=pp;REC.fps/=2;send({cmd:"rec",on:true,fps:REC.fps})}
+  recUI();
+}
+function recFrame(idx){var q=REC.frames[idx],n=REC.n,k=REC.dim===3?3:2,pos=new Float32Array(n*k),i,sp=null;
+  for(i=0;i<n*k;i++)pos[i]=q[i]/8;if(REC.dim===3){var s8=new Uint8Array(q.buffer,n*k*2,n);sp=new Float32Array(n);for(i=0;i<n;i++)sp[i]=s8[i]*2}
+  return {n:n,dim:REC.dim,pos:pos,rad:REC.rad,s0:REC.s0,chi:REC.chi,sp:sp,t:REC.t[idx],below:REC.below[idx]}}
+function recDur(){return REC.t.length?REC.t[REC.t.length-1]:0}
+function recUI(){var has=REC.frames.length>1;$("replay").disabled=!has;$("recSave").disabled=!has;
+  if(REC.loaded){$("recInfo").textContent="Loaded "+(REC.name||"recording")+": "+recDur().toFixed(2)+" s simulated, "+REC.frames.length+" frames. Reset to record live runs again.";return}
+  $("recInfo").textContent=$("rec").checked?(has?"Recorded "+recDur().toFixed(2)+" s of simulated time, "+REC.frames.length+" frames ("+(REC.bytes/1e6).toFixed(0)+" MB)":"Recording…"):"Recording is off.";}
+function repRate(){var v=$("rspd").value;return v==="real"?1/realFactor():+v}
+function startReplay(){if(REC.frames.length<2)return;REP.on=true;REP.t=0;REP.paused=false;$("repPanel").hidden=false;$("rt").max=recDur();send({cmd:"run",on:false});$("pause").textContent="Run"}
+function stopReplay(){REP.on=false;$("repPanel").hidden=true;send({cmd:"run",on:!paused});$("pause").textContent=paused?"Run":"Pause"}
+function replayStep(dt){
+  if(!REP.paused){REP.t+=dt*repRate();if(REP.t>recDur()){REP.t=recDur();REP.paused=true;$("rplay").textContent="Play"}}
+  var lo=0,hi=REC.t.length-1;while(lo<hi){var mid=(lo+hi+1)>>1;if(REC.t[mid]<=REP.t)lo=mid;else hi=mid-1}
+  snap=recFrame(lo);$("rt").value=REP.t;$("rtO").textContent=mmss(REP.t)+" / "+mmss(recDur())+" simulated ("+mmss(REP.t*realFactor())+" real)";
+}
+// ---- saving and loading recordings ----
+// File (.hgrec): gzip of  "HGREC1\n" + uint32 header length + JSON header (settings, times, counts, radii, layer heights, magnetic flags)
+// + frames. Each frame is stored as the difference from the previous one (16-bit, wrapping), which gzip compresses far better.
+var RSET=["shape","r","neck","fill","poly","mu","muw","e","g","dreal","lay","lsp","magOn","mat","mfrac","bf","bth","bph","mutual","fprof","fG","ftm","ffr","fram","feed","stiff","hist"];
+function ctlSnapshot(){var o={mode:mode};RSET.forEach(function(id){var e=$(id);o[id]=e.type==="checkbox"?e.checked:e.value});return o}
+function localStamp(){var d=new Date(),z=function(v){return (v<10?"0":"")+v};return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes())}
+function b64(a){var s="",u=new Uint8Array(a.buffer,a.byteOffset,a.byteLength);for(var i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)}
+function unb64(s,T){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new T(u.buffer)}
+async function gz(blob,dir){if(typeof CompressionStream==="undefined")return null;var st=blob.stream().pipeThrough(dir?new CompressionStream("gzip"):new DecompressionStream("gzip"));return await new Response(st).blob()}
+async function saveRec(){if(REC.frames.length<2)return;$("recIO").textContent="Packing the recording…";
+  var hdr={v:1,n:REC.n,dim:REC.dim,fps:REC.fps,t:REC.t,below:REC.below,pass:REC.pass,rad:b64(REC.rad),s0:b64(REC.s0),chi:REC.chi?b64(REC.chi):null,set:REC.loaded?REC.set:ctlSnapshot(),saved:localStamp(),flen:REC.frames[0].length},
+    hj=new TextEncoder().encode(JSON.stringify(hdr)),parts=[new TextEncoder().encode("HGREC1\n"),new Uint32Array([hj.length]),hj],prev=null;
+  REC.frames.forEach(function(q){var d=new Int16Array(q.length);if(prev)for(var i=0;i<q.length;i++)d[i]=q[i]-prev[i];else d.set(q);parts.push(d);prev=q});
+  var raw=new Blob(parts),z=await gz(raw,true),out=z||raw,a=document.createElement("a"),st=hdr.set;
+  a.href=URL.createObjectURL(out);a.download="hourglass-"+(st.mode==="fine"?"finesand":st.mode)+"-"+st.shape+(st.magOn?"-magnetic":"")+"-"+hdr.saved.replace(/[-: T]/g,"").slice(0,12)+".hgrec";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},5000);
+  $("recIO").textContent="Saved "+a.download+" ("+(out.size/1e6).toFixed(1)+" MB"+(z?", compressed from "+(raw.size/1e6).toFixed(1)+" MB":"")+") to your downloads folder."}
+async function loadRec(file){$("recIO").textContent="Reading "+file.name+"…";
+  try{var head=new Uint8Array(await file.slice(0,2).arrayBuffer()),blob=file;if(head[0]===0x1f&&head[1]===0x8b){blob=await gz(file,false);if(!blob)throw new Error("this browser cannot decompress the file")}
+    var buf=await blob.arrayBuffer(),magic=new TextDecoder().decode(new Uint8Array(buf,0,7));if(magic!=="HGREC1\n")throw new Error("not an hourglass recording");
+    var hl=new DataView(buf).getUint32(7,true),hdr=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,11,hl))),off=11+hl,fl=hdr.flen,nf=hdr.t.length,frames=[],prev=null,i,k;
+    if(off%2)off+=0;var all=new Int16Array(buf.slice(off,off+nf*fl*2));
+    for(k=0;k<nf;k++){var q=new Int16Array(fl),d=all.subarray(k*fl,(k+1)*fl);if(prev)for(i=0;i<fl;i++)q[i]=prev[i]+d[i];else q.set(d);frames.push(q);prev=q}
+    // restore the glass and settings, rebuild once so the outline matches, then hand the frames to the replay
+    var st=hdr.set;if(st.mode!==mode)setMode(st.mode==="fine"&&!backend.gpu?"3d":st.mode);
+    RSET.forEach(function(id){var e=$(id);if(st[id]==null)return;if(e.type==="checkbox")e.checked=st[id];else e.value=st[id];e.dispatchEvent(new Event("input"));e.dispatchEvent(new Event("change"))});
+    clearTimeout(rbT);magUI();rebuild();
+    REC.frames=frames;REC.t=hdr.t;REC.below=hdr.below;REC.pass=hdr.pass||hdr.below;REC.n=hdr.n;REC.dim=hdr.dim;REC.fps=hdr.fps;REC.rad=unb64(hdr.rad,Float32Array);REC.s0=unb64(hdr.s0,Float32Array);
+    REC.chi=hdr.chi?unb64(hdr.chi,Uint8Array):new Uint8Array(hdr.n);REC.bytes=frames.length*fl*2;REC.loaded=true;REC.name=file.name;REC.set=st;REC.rid=-2;
+    recUI();startReplay();$("recIO").textContent="Loaded "+file.name+" (saved "+String(hdr.saved).slice(0,16).replace("T"," ")+"). The glass and settings were restored from the file.";}
+  catch(err){$("recIO").textContent="Could not load "+file.name+": "+err.message+"."}}
+$("recSave").addEventListener("click",saveRec);$("recLoad").addEventListener("click",function(){$("recFile").click()});
+$("recFile").addEventListener("change",function(e){var f=e.target.files[0];if(f)loadRec(f);e.target.value=""});
+// Beverloo for the DEM: number flow (grains per simulated second) through neck width D px
+function fricFac(mu){var t=BEV.fmu,i;if(mu<=t[0][0])return t[0][1];for(i=1;i<t.length;i++)if(mu<=t[i][0]){var a=t[i-1],b=t[i],f=(mu-a[0])/(b[0]-a[0]);return a[1]+f*(b[1]-a[1])}return t[t.length-1][1]}
+function bevQ(D){var dim=geomDim(),b=BEV[dim][$("shape").value],r=rEff(),d=2*r,x=D-b[1]*d;if(x<=0)return 0;
+  var g=Math.sqrt(G0*ctl.g),f=fricFac(ctl.mu)*($("stiff").checked?1:(dim===3?1.13:1.10));
+  return dim===2?b[0]*f*(0.82/(Math.PI*r*r))*g*Math.pow(x,1.5):b[0]*f*(0.6/(4.18879*r*r*r))*g*Math.pow(x,2.5)}
+var BMs=[];function addSample(t,b,bm){if(bm!=null&&b>0)BMs.push([t,bm/b,b]);if(BMs.length>4000)BMs.shift();
+  var k=T.length,q=bevQ(ctl.neck*dpx());if(k===0){thCount=b}else thCount=$("feed").checked?thCount+q*(t-T[k-1]):Math.min(topInit,thCount+q*(t-T[k-1]));
+  var rm=k>=15?(b-B[k-15])/(t-T[k-15]):0;T.push(t);B.push(b);TH.push(thCount);RM.push(rm);RT.push(q);
+  if(T.length>4000){T.shift();B.shift();TH.shift();RM.shift();RT.shift()}
+  k=T.length-1;if(k>=40&&($("feed").checked?b>0.05*demN:demN-b>0.25*demN&&b>0.05*demN)){dots[ctl.neck.toFixed(1)]=(b-B[k-30])/(t-T[k-30])}
+}
+// ---------------- drawing helpers ----------------
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();ctx.fill()}
+function glassPath(p){var path=new Path2D(),i;path.moveTo(CX+p[0][0],CY-p[0][1]);
+  for(i=1;i<p.length;i++)path.lineTo(CX+p[i][0],CY-p[i][1]);for(i=p.length-1;i>=0;i--)path.lineTo(CX-p[i][0],CY-p[i][1]);
+  for(i=0;i<p.length;i++)path.lineTo(CX-p[i][0],CY+p[i][1]);for(i=p.length-1;i>=0;i--)path.lineTo(CX+p[i][0],CY+p[i][1]);path.closePath();return path}
+function layerIdx(s0,spacing){var st=$("lay").value;if(st==="none")return 0;var u=((s0%spacing)+spacing)%spacing;
+  if(st==="mills")return u<0.27*spacing?1:0;return Math.floor(((s0/(spacing/2))%4+4)%4)}
+function layerCols(){var st=$("lay").value;return st==="mills"?["#efece2","#1d1d1d"]:st==="sand"?PAL_SAND:["#dcb468"]}
+function mixed(){return $("magOn").checked&&magFrac()<1&&magFrac()>0}
+function tint(h){var r=parseInt(h.substr(1,2),16),g=parseInt(h.substr(3,2),16),b=parseInt(h.substr(5,2),16),f=0.55;function c(v,t){return Math.round(v*(1-f)+t*f)}
+  var x=[c(r,58),c(g,96),c(b,190)];return "#"+x.map(function(v){return ("0"+v.toString(16)).slice(-2)}).join("")}
+// colour list for drawing: plain layer colours, then the tinted versions for magnetic grains
+function drawCols(){var c=layerCols();return mixed()?c.concat(c.map(tint)):c}
+function colIdx(i,S,sp){var k=layerIdx(S[i],sp);return mixed()&&snap.chi&&snap.chi[i]?k+layerCols().length:k}
+function flipAngle(){if(!flipA)return 0;var t=flipA.t;return (t<.5?2*t*t:1-2*(1-t)*(1-t))*Math.PI}
+function scaleOf(){return cv.width/W}
+function drawDEM2(){
+  var s=scaleOf();ctx.setTransform(s,0,0,s,0,0);ctx.clearRect(0,0,W,H);if(!prof)return;
+  var ang=flipAngle(),gp=glassPath(prof);ctx.save();ctx.translate(CX,CY);ctx.rotate(ang);ctx.translate(-CX,-CY);
+  ctx.fillStyle="#8a6a33";[CX-GEOM[2].W/2-22,CX+GEOM[2].W/2+14].forEach(function(x){ctx.fillRect(x,CY-GEOM[2].H-6,8,2*GEOM[2].H+12)});
+  ctx.fillStyle=css("--glass");ctx.fill(gp);
+  if(snap&&snap.dim===2&&snap.n>5000){splat2(s);}
+  else if(snap&&snap.dim===2){var n=snap.n,P=snap.pos,R=snap.rad,S=snap.s0,cols=drawCols(),sp=ctl.lsp*dpx(),c,i;
+    for(c=0;c<cols.length;c++){ctx.fillStyle=cols[c];ctx.beginPath();
+      for(i=0;i<n;i++){if(colIdx(i,S,sp)!==c)continue;var x=CX+P[2*i],y=CY-P[2*i+1],r=R[i];
+        if(r*s<1.4)ctx.rect(x-r,y-r,2*r,2*r);else{ctx.moveTo(x+r,y);ctx.arc(x,y,r,0,6.2832)}}ctx.fill();}}
+  ctx.lineWidth=2;ctx.strokeStyle=css("--glassline");ctx.stroke(gp);
+  drawField2(gp);
+  ctx.fillStyle="#b08a4a";var G=GEOM[2];rr(CX-G.W/2-34,CY-G.H-22,G.W+68,18,5);rr(CX-G.W/2-34,CY+G.H+4,G.W+68,18,5);ctx.restore();
+}
+var FQ={};function fieldQ(){var o=magOpt(),G=GEOM[geomDim()];o.dim=geomDim();o.Lh=G.H;o.H=G.H;o.W=G.W;o.D=ctl.neck*dpx();magGeom(o,CX,CY,G.H,o.D/2);return o}
+function drawFieldMap(gp,t){var Q=fieldQ(),o=[0,0,0],G=GEOM[2],x,y;ctx.save();ctx.clip(gp);ctx.lineWidth=1.3;
+  for(y=CY-G.H+14;y<CY+G.H;y+=28)for(x=CX-G.W/2+14;x<CX+G.W/2;x+=28){magField(Q,CX,CY,x,y,0,t,o);var m=Math.hypot(o[0],o[1]);if(m<1e-3)continue;var L=Math.min(12,4+8*m),ux=o[0]/m,uy=o[1]/m,a=Math.min(0.6,0.12+0.5*m);
+    ctx.strokeStyle="rgba(70,110,200,"+a+")";ctx.beginPath();ctx.moveTo(x-ux*L,y-uy*L);ctx.lineTo(x+ux*L,y+uy*L);ctx.stroke()}ctx.restore();
+  if(Q.prof>=2){var mx=Q.Mx,my=Q.My,inside=my<H-8&&mx<W-8;ctx.save();ctx.fillStyle="#b54a3c";ctx.font="600 11px system-ui,sans-serif";
+    if(inside){ctx.fillRect(mx-6,my-10,12,20);ctx.fillText("magnet",mx-18,my+24)}else{var ex=Math.min(mx,W-12),ey=Math.min(my,H-12);ctx.beginPath();ctx.moveTo(ex,ey+8);ctx.lineTo(ex-6,ey-4);ctx.lineTo(ex+6,ey-4);ctx.fill();ctx.fillText("magnet "+(Q.prof===2?"below":"right"),Math.min(ex-30,W-90),ey-10)}ctx.restore()}
+  var b=[0,0,0];magField(Q,CX,CY,CX,CY,0,t,b);var bm=Math.hypot(b[0],b[1]);if(bm>1e-4)fieldArrow(26,330,b[0]/bm,b[1]/bm);}
+function drawField2(gp){if(!$("magOn").checked||bondNo()<=0)return;if(+$("fprof").value>0||+$("ftm").value>0){drawFieldMap(gp,snap?snap.t:0);return}var h=fieldDir(),hx=h[0],hy=h[1],i,G=GEOM[2];
+  ctx.save();ctx.clip(gp);ctx.strokeStyle="rgba(70,110,200,0.22)";ctx.lineWidth=1;var L=700,sp=26,px=-hy,py=hx;
+  for(i=-16;i<=16;i++){var ox=CX+px*i*sp,oy=CY+py*i*sp;ctx.beginPath();ctx.moveTo(ox-hx*L,oy-hy*L);ctx.lineTo(ox+hx*L,oy+hy*L);ctx.stroke()}ctx.restore();
+  fieldArrow(26,330,hx,hy)}
+function fieldArrow(x,y,hx,hy){ctx.save();ctx.strokeStyle="#4a6fc4";ctx.fillStyle="#4a6fc4";ctx.lineWidth=2.5;var L=22;ctx.beginPath();ctx.moveTo(x-hx*L,y-hy*L);ctx.lineTo(x+hx*L,y+hy*L);ctx.stroke();
+  var a=Math.atan2(hy,hx);ctx.beginPath();ctx.moveTo(x+hx*L,y+hy*L);ctx.lineTo(x+hx*L-9*Math.cos(a-0.45),y+hy*L-9*Math.sin(a-0.45));ctx.lineTo(x+hx*L-9*Math.cos(a+0.45),y+hy*L-9*Math.sin(a+0.45));ctx.fill();
+  ctx.font="600 12px system-ui,sans-serif";ctx.fillText("B",x-4,y+42);ctx.font="11px system-ui,sans-serif";ctx.fillText(Bmt().toFixed(Bmt()<1?2:0)+" mT",x-18,y+56);ctx.restore()}
+// Pixel renderers for large grain counts: discs are written straight into an image buffer (2D),
+// or splatted as shaded spheres with a depth buffer (3D), instead of one canvas path per grain.
+var spC=null,spX=null,spImg=null,spZ=null;
+function spBuf(){var w=cv.width,h=cv.height;if(!spC||spC.width!==w||spC.height!==h){spC=document.createElement("canvas");spC.width=w;spC.height=h;spX=spC.getContext("2d");spImg=spX.createImageData(w,h);spZ=new Float32Array(w*h)}return spImg}
+function rgbOf(cols){return cols.map(function(c){return [parseInt(c.substr(1,2),16),parseInt(c.substr(3,2),16),parseInt(c.substr(5,2),16)]})}
+function splat2(s){
+  var img=spBuf(),d=img.data,w=spC.width,h=spC.height,n=snap.n,P=snap.pos,R=snap.rad,S=snap.s0,cols=rgbOf(drawCols()),sp=ctl.lsp*dpx(),i;d.fill(0);
+  for(i=0;i<n;i++){var c=cols[colIdx(i,S,sp)],px=(CX+P[2*i])*s,py=(CY-P[2*i+1])*s,rp=R[i]*s*0.98,x0=Math.max(0,Math.floor(px-rp)),x1=Math.min(w-1,Math.ceil(px+rp)),
+      y0=Math.max(0,Math.floor(py-rp)),y1=Math.min(h-1,Math.ceil(py+rp)),r2=Math.max(rp*rp,0.36);
+    for(var y=y0;y<=y1;y++){var dy=y+0.5-py;for(var x=x0;x<=x1;x++){var dx=x+0.5-px;if(dx*dx+dy*dy>r2)continue;var k=(y*w+x)*4;d[k]=c[0];d[k+1]=c[1];d[k+2]=c[2];d[k+3]=255}}}
+  spX.putImageData(img,0,0);ctx.save();ctx.setTransform(1,0,0,1,0,0);var ang=flipAngle(),cx=CX*s,cy=CY*s;ctx.translate(cx,cy);ctx.rotate(ang);ctx.translate(-cx,-cy);ctx.drawImage(spC,0,0);ctx.restore();
+}
+function splat3(n,P,R,S,cols0,spc,cut,ang){
+  var s=scaleOf(),img=spBuf(),d=img.data,w=spC.width,h=spC.height,Z=spZ,cols=rgbOf(cols0),i;d.fill(0);Z.fill(1e9);
+  for(i=0;i<n;i++){if(cut&&ZD[i]<0)continue;var c=cols[colIdx(i,S,spc)],px=XS[i]*s,py=YS[i]*s,rp=R[i]*FS[i]*s,z0=ZD[i],
+      x0=Math.max(0,Math.floor(px-rp)),x1=Math.min(w-1,Math.ceil(px+rp)),y0=Math.max(0,Math.floor(py-rp)),y1=Math.min(h-1,Math.ceil(py+rp)),r2=Math.max(rp*rp,0.36),ir=1/Math.max(rp,0.6);
+    for(var y=y0;y<=y1;y++){var dy=y+0.5-py;for(var x=x0;x<=x1;x++){var dx=x+0.5-px,q=dx*dx+dy*dy;if(q>r2)continue;var nz=Math.sqrt(1-q/r2),zz=z0-nz*R[i],k=y*w+x;
+        if(zz>=Z[k])continue;Z[k]=zz;var sh=0.55+0.45*(nz*0.8+(-dx*ir*0.35)+(-dy*ir*0.45));sh=sh>1.1?1.1:sh;k*=4;d[k]=c[0]*sh;d[k+1]=c[1]*sh;d[k+2]=c[2]*sh;d[k+3]=255}}}
+  spX.putImageData(img,0,0);ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(spC,0,0);ctx.restore();
+}
+var yaw=.5,pit=.3,ord=[],XS,YS,ZD,FS;
+function drawDEM3(){
+  var s=scaleOf();ctx.setTransform(s,0,0,s,0,0);ctx.clearRect(0,0,W,H);if(!prof)return;
+  var ang=flipAngle(),cr=Math.cos(ang),sr=Math.sin(ang),cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pit),spp=Math.sin(pit),QX,QY,QZ,QF;
+  function pr(x,y,z){var x1=x*cy+z*sy,z1=-x*sy+z*cy,y2=y*cp-z1*spp,z2=y*spp+z1*cp,f=700/(700+z2);QX=CX+(x1*cr-y2*sr)*f;QY=CY+(x1*sr+y2*cr)*f;QZ=z2;QF=f}
+  var G=GEOM[3],i,j,t,w,k,ytop=1e9,ybot=-1e9,wc=prof[prof.length-2][0];
+  var cr0=cr,sr0=sr;cr=1;sr=0;for(t=0;t<32;t++){var cs_=Math.cos(t/32*6.2832)*wc,sn_=Math.sin(t/32*6.2832)*wc;pr(cs_,-G.H,sn_);ytop=Math.min(ytop,QY-CY);pr(cs_,G.H,sn_);ybot=Math.max(ybot,QY-CY)}cr=cr0;sr=sr0;
+  ctx.save();ctx.translate(CX,CY);ctx.rotate(ang);ctx.translate(-CX,-CY);ctx.fillStyle="#b08a4a";
+  rr(CX-G.W/2-14,CY+ytop-20,G.W+28,18,5);rr(CX-G.W/2-14,CY+ybot+2,G.W+28,18,5);ctx.restore();
+  ctx.strokeStyle=css("--glassline");ctx.lineWidth=1.2;ctx.globalAlpha=.35;
+  for(k=0;k<prof.length;k+=Math.max(1,Math.floor(prof.length/8)))for(var sd=-1;sd<=1;sd+=2){w=prof[k][0];if(w<1)continue;ctx.beginPath();
+    for(t=0;t<=32;t++){pr(w*Math.cos(t/32*6.2832),-sd*prof[k][1],w*Math.sin(t/32*6.2832));t?ctx.lineTo(QX,QY):ctx.moveTo(QX,QY)}ctx.stroke()}
+  ctx.globalAlpha=1;ctx.lineWidth=2.2;
+  for(var sd2=-1;sd2<=1;sd2+=2)for(var hb=-1;hb<=1;hb+=2){ctx.beginPath();for(k=0;k<prof.length;k++){w=prof[k][0]*sd2;pr(w*cy,-hb*prof[k][1],w*sy);k?ctx.lineTo(QX,QY):ctx.moveTo(QX,QY)}ctx.stroke()}
+  if($("magOn").checked&&bondNo()>0){var hh=fieldDir();pr(hh[0]*40,hh[1]*40,hh[2]*40);var ex=QX-CX,ey=QY-CY,el=Math.hypot(ex,ey)||1;fieldArrow(26,330,ex/el,ey/el)}
+  if(!snap||snap.dim!==3)return;
+  var n=snap.n,P=snap.pos,R=snap.rad,S=snap.s0,cols=layerCols(),spc=ctl.lsp*dpx();
+  if(!XS||XS.length<n){XS=new Float32Array(n);YS=new Float32Array(n);ZD=new Float32Array(n);FS=new Float32Array(n)}
+  for(i=0;i<n;i++){pr(P[3*i],-P[3*i+1],P[3*i+2]);XS[i]=QX;YS[i]=QY;ZD[i]=QZ;FS[i]=QF}
+  if(n>2500){splat3(n,P,R,S,drawCols(),spc,$("cut").checked,ang);return}
+  cols=drawCols();
+  ord.length=n;for(i=0;i<n;i++)ord[i]=i;ord.sort(function(a,b){return ZD[b]-ZD[a]});
+  var cf=$("cut").checked;ctx.strokeStyle="rgba(60,40,10,.35)";ctx.lineWidth=.6;
+  for(j=0;j<n;j++){i=ord[j];if(cf&&ZD[i]<0)continue;ctx.fillStyle=cols[colIdx(i,S,spc)];ctx.beginPath();ctx.arc(XS[i],YS[i],R[i]*FS[i],0,6.2832);ctx.fill();if(R[i]>2)ctx.stroke()}
+}
+function sections(){
+  if(!snap||snap.dim!==3)return;
+  var A=$("s1"),Bc=$("s2"),sh=+$("sh").value,V=GEOM[3].W/2+12,i,ar=0,gl=css("--glassline"),mu=css("--mute"),n=snap.n,P=snap.pos,R=snap.rad,S=snap.s0,SP=snap.sp,cols=layerCols(),spc=ctl.lsp*dpx(),bysp=$("bysp").checked;
+  $("shO").textContent=sh+" px";
+  var a=A.getContext("2d"),b=Bc.getContext("2d"),sc=A.width/(2*V),yt=Math.min(GEOM[3].H+6,2*V-24);
+  a.setTransform(1,0,0,1,0,0);a.clearRect(0,0,A.width,A.height);b.setTransform(1,0,0,1,0,0);b.clearRect(0,0,Bc.width,Bc.height);
+  function col(i){if(!bysp)return cols[layerIdx(S[i],spc)];var t=Math.min(1,SP[i]/90);return "hsl("+(215-175*t)+",75%,"+(58-8*t)+"%)"}
+  a.strokeStyle=gl;a.lineWidth=2;for(var sd=-1;sd<=1;sd+=2){a.beginPath();for(var k=0;k<prof.length;k++){var X=(sd*prof[k][0]+V)*sc,Y=(yt-prof[k][1])*sc;k?a.lineTo(X,Y):a.moveTo(X,Y)}a.stroke()}
+  for(i=0;i<n;i++){var x=P[3*i],y=P[3*i+1],z=P[3*i+2],r=R[i];
+    if(Math.abs(z)<r){a.fillStyle=col(i);a.beginPath();a.arc((x+V)*sc,(yt-y)*sc,Math.sqrt(r*r-z*z)*sc,0,6.2832);a.fill()}
+    var dy=y-sh;if(Math.abs(dy)<r){var rad=Math.sqrt(r*r-dy*dy);ar+=Math.PI*rad*rad;b.fillStyle=col(i);b.beginPath();b.arc((x+V)*sc,(z+V)*sc,rad*sc,0,6.2832);b.fill()}}
+  a.setLineDash([5,4]);a.strokeStyle=mu;a.lineWidth=1.2;a.beginPath();a.moveTo(0,(yt-sh)*sc);a.lineTo(A.width,(yt-sh)*sc);a.stroke();a.setLineDash([]);
+  var w=maker.halfWidthAt?hw(sh):0;b.strokeStyle=gl;b.lineWidth=2;b.beginPath();b.arc(V*sc,V*sc,w*sc,0,6.2832);b.stroke();
+  $("leg").textContent=w>0?"Area fraction in the horizontal slice: "+Math.round(100*ar/(Math.PI*w*w))+"% (randomly packed spheres sit near 60%).":"";
+}
+function hw(s){var p=prof,a=Math.abs(s);for(var i=0;i<p.length-1;i++){if(p[i+1][1]>=a&&p[i+1][1]>p[i][1]){var t=(a-p[i][1])/(p[i+1][1]-p[i][1]);return p[i][0]+t*(p[i+1][0]-p[i][0])}}return 0}
+// ---------------- plots ----------------
+function fmt(v){return v>=100?Math.round(v)+"":v>=10?v.toFixed(0):v.toFixed(1)}
+function plot(c,S,o){
+  var x=c.getContext("2d"),w=c.clientWidth,h=c.clientHeight;if(!w)return;var dpr=Math.min(window.devicePixelRatio||1,2);if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr)}var sc=c.width/w;
+  x.setTransform(sc,0,0,sc,0,0);x.clearRect(0,0,w,h);
+  var L=44,R=10,Tp=24,Bm=26,pw=w-L-R,ph=h-Tp-Bm,ink=css("--ink"),mute=css("--mute"),line=css("--line"),acc=css("--accent");
+  var xm=o.xmax,ym=o.ymin||1,ylo=0;if(o.neg){S.forEach(function(s){s.y.forEach(function(v){if(v<ylo)ylo=v})});ylo*=1.08;if(ylo<0&&o.sym){ylo=Math.min(ylo,-ym);}}S.forEach(function(s){s.y.forEach(function(v){if(v>ym)ym=v})});(o.dots||[]).forEach(function(d){if(d[1]+(d[2]||0)>ym)ym=d[1]+(d[2]||0)});ym*=1.08;
+  if(o.neg&&o.sym){var mm=Math.max(Math.abs(ylo),o.ymin||1);S.forEach(function(s){s.y.forEach(function(v){mm=Math.max(mm,Math.abs(v)*1.08)})});ylo=-mm;ym=mm}
+  function X(v){return L+pw*v/xm}function Y(v){return Tp+ph*(1-(v-ylo)/(ym-ylo))}
+  x.font="11px system-ui,sans-serif";x.lineWidth=1;
+  for(var k=0;k<=4;k++){var gy=Tp+ph*k/4;x.strokeStyle=line;x.beginPath();x.moveTo(L,gy);x.lineTo(w-R,gy);x.stroke();x.fillStyle=mute;x.textAlign="right";var lv=ym-(ym-ylo)*k/4;x.fillText((lv<0?"−":"")+fmt(Math.abs(lv)),L-5,gy+4)}
+  x.textAlign="center";for(k=0;k<=2;k++)x.fillText(fmt(xm*k/2),L+pw*k/2,h-Bm+14);x.fillText(o.xl,L+pw/2,h-3);
+  x.textAlign="left";x.fillStyle=ink;x.font="600 12px system-ui,sans-serif";x.fillText(o.title,L,14);
+  S.forEach(function(s){x.strokeStyle=s.col==="acc"?acc:ink;x.lineWidth=2;x.setLineDash(s.dash?[6,4]:[]);x.beginPath();
+    for(var i=0;i<s.x.length;i++){i?x.lineTo(X(s.x[i]),Y(s.y[i])):x.moveTo(X(s.x[i]),Y(s.y[i]))}x.stroke()});
+  x.setLineDash([]);x.fillStyle=acc;x.strokeStyle=acc;x.lineWidth=1.5;(o.dots||[]).forEach(function(d){if(d[2]>0){var y0=Y(Math.max(0,d[1]-d[2])),y1=Y(d[1]+d[2]),xx=X(d[0]);x.beginPath();x.moveTo(xx,y0);x.lineTo(xx,y1);x.moveTo(xx-3,y0);x.lineTo(xx+3,y0);x.moveTo(xx-3,y1);x.lineTo(xx+3,y1);x.stroke()}x.beginPath();x.arc(X(d[0]),Y(d[1]),4,0,6.2832);x.fill()});
+  (o.marks||[]).forEach(function(d){x.strokeStyle=ink;x.lineWidth=1.5;x.beginPath();x.arc(X(d[0]),Y(d[1]),4.5,0,6.2832);x.stroke()});
+  if(o.vline!=null){x.strokeStyle=mute;x.setLineDash([2,3]);x.beginPath();x.moveTo(X(o.vline),Tp);x.lineTo(X(o.vline),Tp+ph);x.stroke();x.setLineDash([])}
+}
+function plotMagShare(){var c=$("p5");if(c.hidden||!c.clientWidth)return;var f=magFrac(),xs=BMs.map(function(q){return q[0]}),ys=BMs.map(function(q){return 100*q[1]}),xm=Math.max(5,xs.length?xs[xs.length-1]:5);
+  plot(c,[{x:xs,y:ys,col:"acc"},{x:[0,xm],y:[100*f,100*f],dash:1}],{xmax:xm,xl:"simulated time (s)",title:"Magnetic share of the sand that has fallen (%), dashed = share in the glass",ymin:Math.min(100,100*f*1.6)})}
+function plotFieldTime(){var c=$("p6");if(c.hidden||!c.clientWidth||T.length<5)return;var Q=fieldQ(),o=[0,0,0],xs=[],fs=[],rx=[],ry=[],mx=1,i;
+  // centred 0.4 s difference so the flow curve is not lagged against the field
+  for(i=2;i<T.length-2;i++){var r=(B[i+2]-B[i-2])/(T[i+2]-T[i-2]);rx.push(T[i]);ry.push(r);if(r>mx)mx=r}
+  for(i=0;i<T.length;i++){magField(Q,CX,CY,CX,CY-20,0,T[i],o);xs.push(T[i]);fs.push(mx*(o[0]*o[0]+o[1]*o[1]+o[2]*o[2])/Math.max(1e-9,maxB2(Q)))}
+  plot(c,[{x:rx,y:ry,col:"acc"},{x:xs,y:fs,dash:1}],{xmax:Math.max(2,T[T.length-1]),xl:"simulated time (s)",title:"Flow, grains/s (solid) vs |B|² above the neck (dashed)"})}
+function maxB2(Q){var o=[0,0,0],m=1e-9,per=Q.freq>0?1/Q.freq:1;for(var k=0;k<=40;k++){magField(Q,CX,CY,CX,CY-20,0,k*per/40+(Q.tmode>=4?k*Q.Tramp/40:0),o);m=Math.max(m,o[0]*o[0]+o[1]*o[1]+o[2]*o[2])}return m}
+function plotsDEM(){plotMagShare();plotFieldTime();plotRef();plotInv();
+  var xm=Math.max(5,T.length?T[T.length-1]:5);
+  plot($("p1"),[{x:T,y:B,col:"acc"},{x:T,y:TH,dash:1}],{xmax:xm,xl:"simulated time (s)",title:($("feed").checked?"Grains passed through the neck":"Grains in bottom bulb")+": sim (solid), Beverloo (dashed)"});
+  plot($("p2"),[{x:T,y:RM,col:"acc"},{x:T,y:RT,dash:1}],{xmax:xm,xl:"simulated time (s)",title:"Flow rate, grains/s: sim (solid), Beverloo (dashed)"});
+  var xmx=Math.min(20,Math.max(8,Math.ceil(ctl.neck*1.6))),cx=[],cy=[],dl=[],D;for(D=0;D<=xmx;D+=0.25){cx.push(D);cy.push(bevQ(D*dpx()))}
+  for(var k in dots)if(+k<=xmx)dl.push([+k,dots[k]]);
+  plot($("p3"),[{x:cx,y:cy,dash:1}],{xmax:xmx,xl:"neck opening D / grain diameter",title:"Flow rate vs neck: Beverloo (dashed), sim (dots)",dots:dl,vline:geomDim()===3?4.5:3,ymin:5});
+}
+// ---------------- status ----------------
+function realFactor(){return Math.sqrt(G0*ctl.g*ctl.dreal/(9810*dpx()))}
+function mmss(t){if(t<10)return t.toFixed(2)+" s";if(t<60)return t.toFixed(1)+" s";if(t>=3600){var hh=Math.floor(t/3600),mm=Math.floor(t%3600/60);return hh+" h "+(mm<10?"0":"")+mm+" min"}var m=Math.floor(t/60),s=Math.floor(t%60);return m+":"+(s<10?"0":"")+s}
+function scaleNote(){
+  if(mode==="cont"){$("scale").textContent=C.note();return}
+  var G=GEOM[geomDim()],mmpp=ctl.dreal/dpx();
+  $("scale").textContent="Glass shown: bulb "+(G.W*mmpp).toFixed(0)+" mm wide, "+(G.H*mmpp).toFixed(0)+" mm tall, neck "+(ctl.neck*ctl.dreal).toFixed(1)+" mm, if each grain is "+ctl.dreal+" mm. 1 s simulated ≈ "+realFactor().toFixed(2)+" s real.";
+}
+function statsDEM(){
+  if(!snap){$("cmp").textContent=status;return}
+  if(REP.on){$("sTop").textContent=snap.n-snap.below;$("sBot").textContent=snap.below;$("sTime").textContent=mmss(snap.t);$("lTime").textContent="Sim time ("+mmss(snap.t*realFactor())+" real)";
+    var j=REC.t.indexOf(snap.t),j0=Math.max(0,j-15);$("sRate").textContent=j>j0?Math.round((REC.pass[j]-REC.pass[j0])/(REC.t[j]-REC.t[j0])):0;$("cmp").textContent="Replaying the recorded run at "+($("rspd").value==="real"?"the real glass's speed":$("rspd").value+"× simulated time")+".";return}
+  var b=snap.below,n=snap.n,k=T.length-1;$("sTop").textContent=n-b;$("sBot").textContent=b;
+  $("sRate").textContent=k>=15?Math.round(RM[k]):0;$("sTime").textContent=mmss(snap.t);$("lTime").textContent="Sim time ("+mmss(snap.t*realFactor())+" real)";
+  var q=bevQ(ctl.neck*dpx()),top=n-b,st,txt;
+  if(top<=3)st="Empty";else if(k>=20&&B[k]-B[k-20]===0)st="Jammed";else st="Flowing";
+  if($("autopause").checked&&!paused&&!snap.feed&&!auto&&!APdone&&!flipA&&(st==="Empty"||(st==="Jammed"&&top<=0.05*n))){APdone=true;setPaused(true);status="Paused because the glass is empty."}
+  var m=k>=30?(B[k]-B[k-30])/(T[k]-T[k-30]):null,bb=BEV[geomDim()][$("shape").value];
+  txt=(bondNo()>0?"Non-magnetic Beverloo: ":"Beverloo: ")+q.toFixed(1)+" grains/s (C = "+(bb[0]*fricFac(ctl.mu)*($("stiff").checked?1:(geomDim()===3?1.13:1.10))).toFixed(2)+", k = "+bb[1].toFixed(2)+")";
+  if(m!==null&&st==="Flowing"&&q>0)txt+=" · measured "+m.toFixed(1)+" ("+((m/q-1)*100>=0?"+":"")+((m/q-1)*100).toFixed(0)+"%)";
+  if(bondNo()>0)txt+=" · Bo = "+fmtBo(bondNo());
+  txt+=" · "+st+" · "+n+" grains · "+(paused?"paused":$("fast").checked?"computing flat out at "+(rtv*1e9).toFixed(2)+"× simulated real time":rtv>=.95?"running at the set speed":"running at "+(rtv).toFixed(2)+"× the set speed (heavy load)");
+  if(APdone&&paused)txt+=" · paused: the glass is empty (press Run or Flip)";$("cmp").textContent=txt;
+  if(auto&&!flipA&&!snap.feed){if(top<=Math.max(3,n*.01)){emptyT+=.2;if(emptyT>1)startFlip()}else emptyT=0}
+  if($("autorep").checked&&!REP.on&&!REP.done&&top<=Math.max(3,n*.01)&&REC.frames.length>1){REP.done=true;startReplay()}
+}
+function warn(){
+  var el=$("warn");if(mode==="cont"){el.textContent=C.warn();return}
+  var ratio=ctl.neck,lim=geomDim()===3?4.5:3;
+  el.textContent=ratio<1?"The neck is narrower than one grain, so nothing can pass.":ratio<lim?"The neck is under "+lim+" grain diameters wide, so jams are likely.":
+    (demN>=(mode==="fine"?400000:useGPU()?(geomDim()===3?150000:300000):(geomDim()===3?25000:40000))?"Grain count capped at "+demN+"; lower the fill or use larger grains.":"");
+}
+// ---------------- continuum (fine sand) ----------------
+var C=(function(){
+  var K={hourglass:8.5,classic:12,cone:8,silo:19,bottle:21};   // Mills et al. 1996, P = K V (D-d)^-2.5
+  var o={},sc=1,NR=0,NS=0,wrow,V,U,Mr,Ms,Mr2,Ms2,hs,src,img,off,offc,Vtot=0,Vd=0,t=0,Q=0,exitCol,NB=600,pileA,pileV,wallS,prf,lowCov,running=true,fillLevel=0,Bk=1,jam=false,empty=false,hist=[];
+  function hwf(s){var p=prf,a=Math.abs(s);if(a>p[p.length-1][1])return 0;for(var i=0;i<p.length-1;i++){if(p[i+1][1]>=a&&p[i+1][1]>p[i][1]){var tt=(a-p[i][1])/(p[i+1][1]-p[i][1]);return p[i][0]+tt*(p[i+1][0]-p[i][0])}}return p[0][1]===a?p[0][0]:0}
+  function read(){o.shape=$("cshape").value;o.W=ctl.cw;o.H=ctl.ch;o.d=cdmm();o.D=ctl.cD;o.fill=ctl.cfill;o.rep=ctl.crep;o.speed=cspd()}
+  function cdmm(){return +(0.05*Math.pow(20,ctl.cd)).toFixed(3)}
+  function cspd(){return Math.round(Math.pow(10,ctl.cspd*3))}
+  function flowQ(){ // mm^3/s
+    if(o.D<4*o.d)return 0;return 1000*Math.pow(o.D-o.d,2.5)/K[o.shape]}
+  function rebuild(){
+    read();sc=Math.min(250/o.W,270/o.H);var Wp=o.W*sc,Hp=o.H*sc,Dp=Math.max(o.D*sc,1.0);
+    prf=maker.profile(o.shape,Dp,Wp,Hp);prof=prf;
+    NR=Math.ceil(Wp/2)+2;NS=Math.ceil(Hp)+2;wrow=new Float64Array(NS);var i,j;
+    for(i=0;i<NS;i++)wrow[i]=hwf(i+0.5);
+    // kinematic velocity field (per unit volumetric flux)
+    V=new Float64Array(NS*NR);U=new Float64Array(NS*NR);Bk=Math.max(0.15,2.3*o.d*sc);
+    var v=new Float64Array(NR),nv=new Float64Array(NR),R0=Dp/2;
+    for(j=0;j<NR;j++)v[j]=(j+0.5)<R0?1:0;
+    for(i=0;i<NS;i++){
+      var jw=Math.max(1,Math.min(NR,Math.ceil(wrow[i]-0.5)));
+      var sl=Math.abs(hwf(i+1.5)-hwf(Math.max(i-0.5,0)))/2,alpha=Math.atan(sl)*180/Math.PI,beta=Math.max(0,Math.min(1,(45-alpha)/15));
+      var Be=Bk+beta*0.35*wrow[i];
+      if(i>0){var n=Math.max(1,Math.ceil(4*Be)),h=Be/n;
+        for(var it=0;it<n;it++){for(j=0;j<jw;j++){var rj=j+0.5,vl=j>0?v[j-1]:v[0],vr=j<jw-1?v[j+1]:v[j],rp=j+1,rm=j;
+            nv[j]=v[j]+h*(rp*(vr-v[j])-rm*(v[j]-vl))/rj}for(j=0;j<jw;j++)v[j]=nv[j];}
+      }
+      for(j=jw;j<NR;j++)v[j]=0;
+      var fl=0;for(j=0;j<jw;j++)fl+=2*Math.PI*(j+0.5)*v[j];if(fl>0)for(j=0;j<jw;j++)v[j]/=fl;
+      for(j=0;j<NR;j++){V[i*NR+j]=v[j];var dv=(j+1<jw?v[j+1]:v[j])-(j>0?v[j-1]:v[j]);U[i*NR+j]=Be*dv/(j>0&&j+1<jw?2:1)}
+    }
+    // volume & fill level
+    var vol=new Float64Array(NS+1);for(i=0;i<NS;i++){var a=0;for(j=0;j<NR;j++)if(j+0.5<wrow[i])a+=2*Math.PI*(j+0.5);vol[i+1]=vol[i]+a}
+    var Vb=vol[NS],target=o.fill*Vb;fillLevel=0;for(i=0;i<NS;i++)if(vol[i+1]>=target){fillLevel=i+(target-vol[i])/Math.max(1,vol[i+1]-vol[i]);break}
+    Vtot=target/(sc*sc*sc);Vd=0;t=0;hist=[];empty=false;
+    hs=new Float64Array(NR);wallS=new Float64Array(NR);for(j=0;j<NR;j++){hs[j]=fillLevel;wallS[j]=NS;for(i=0;i<NS;i++)if(j+0.5<wrow[i]){wallS[j]=i;break}}
+    Mr=new Float32Array(NS*NR);Ms=new Float32Array(NS*NR);Mr2=new Float32Array(NS*NR);Ms2=new Float32Array(NS*NR);
+    for(i=0;i<NS;i++)for(j=0;j<NR;j++){Mr[i*NR+j]=j+0.5;Ms[i*NR+j]=i+0.5}
+    // lower pile: volume under a cone of apex height a (measured from the bottom of the lower bulb)
+    var tn=Math.tan(o.rep*Math.PI/180),NA=NS+Math.ceil(NR*tn)+2;pileV=new Float64Array(NA);
+    for(var ai=0;ai<NA;ai++){var pv=0;for(i=0;i<NS;i++){var depth=i+0.5,wl=wrow[NS-1-i]||0;for(j=0;j<NR&&j+0.5<wl;j++)if(depth<=ai-(j+0.5)*tn)pv+=2*Math.PI*(j+0.5)}pileV[ai]=pv}
+    lowCov=new Float64Array(NS*NR);for(i=0;i<NS;i++)for(j=0;j<NR;j++){var ac=(i+0.5)+(j+0.5)*tn,a0=Math.floor(ac),f=ac-a0;lowCov[i*NR+j]=(a0+1<NA?pileV[a0]*(1-f)+pileV[a0+1]*f:1e18)/(sc*sc*sc)}
+    exitCol=new Array(NB);for(i=0;i<NB;i++)exitCol[i]=null;
+    Q=flowQ();jam=Q===0;
+    off=document.createElement("canvas");off.width=W;off.height=H;offc=off.getContext("2d");img=offc.createImageData(W,H);
+    texture();T=[];B=[];scaleNote();warn();
+  }
+  var srcFlip=null;
+  function texture(){ // colour of material by its initial position (rho,s)
+    src=new Uint8ClampedArray(NS*NR*3);var st=$("lay").value,sp=ctl.lsp*0.5*sc,cols=layerCols().map(hex),i,j;
+    for(i=0;i<NS;i++)for(j=0;j<NR;j++){var k=(i*NR+j)*3,c;
+      if(srcFlip){c=[srcFlip[k],srcFlip[k+1],srcFlip[k+2]]}else{var s0=i+0.5,u=((s0%sp)+sp)%sp;
+        c=st==="mills"?(u<0.27*sp?cols[1]:cols[0]):st==="sand"?cols[Math.floor(s0/(sp/2))%4]:cols[0];
+        var nz=((i*73856093)^(j*19349663))&15;c=[c[0]-nz,c[1]-nz,c[2]-nz]}
+      src[k]=c[0];src[k+1]=c[1];src[k+2]=c[2]}
+  }
+  function hex(h){return [parseInt(h.substr(1,2),16),parseInt(h.substr(3,2),16),parseInt(h.substr(5,2),16)]}
+  function samp(A,r,s){if(r<0.5)r=0.5;var j=r-0.5,i=s-0.5;if(i<0)i=0;if(i>NS-1.001)i=NS-1.001;if(j>NR-1.001)j=NR-1.001;var i0=i|0,j0=j|0,fi=i-i0,fj=j-j0,k=i0*NR+j0;
+    return A[k]*(1-fi)*(1-fj)+A[k+1]*(1-fi)*fj+A[k+NR]*fi*(1-fj)+A[k+NR+1]*fi*fj}
+  function hsAt(r){var j=Math.min(NR-1,Math.max(0,Math.floor(r)));return hs[j]}
+  function step(dtReal){
+    if(jam||empty||!running)return;var dt=dtReal*o.speed,Qp=Q*sc*sc*sc,i,j;
+    var vref=V[Math.min(NS-1,4)*NR]*Qp,n=Math.max(1,Math.min(12,Math.ceil(vref*dt/3))),h=dt/n,tn=Math.tan(o.rep*Math.PI/180);
+    for(var it=0;it<n;it++){
+      if(Vd>=Vtot){empty=true;Vd=Vtot;break}
+      // free surface: drawdown by the local downward speed, then avalanche to the angle of repose (volume weighted by rho)
+      for(j=0;j<NR;j++){var ii=Math.max(0,Math.min(NS-1,Math.floor(hs[j])));hs[j]-=V[ii*NR+j]*Qp*h;}
+      for(var pass=0;pass<6;pass++){for(j=0;j<NR-1;j++){var a1=j+0.5,a2=j+1.5;if(hs[j+1]<wallS[j+1]-0.5)continue;var dlt=hs[j+1]-hs[j];
+          if(dlt>tn){var e=dlt-tn,d1=e*a2/(a1+a2),d2=e*a1/(a1+a2);hs[j]+=d1;hs[j+1]-=d2}else if(dlt<-tn){var e2=-dlt-tn;hs[j]-=e2*a2/(a1+a2);hs[j+1]+=e2*a1/(a1+a2)}}}
+      for(j=0;j<NR;j++)if(hs[j]<wallS[j])hs[j]=Math.max(0,Math.min(hs[j],wallS[j]));
+      // material map: semi-Lagrangian back-trace through the steady kinematic field
+      for(i=0;i<NS;i++)for(j=0;j<NR;j++){var k=i*NR+j;if(j+0.5>=wrow[i]){Mr2[k]=Mr[k];Ms2[k]=Ms[k];continue}
+        var rr0=j+0.5-U[k]*Qp*h,ss0=i+0.5+V[k]*Qp*h;if(rr0<0)rr0=-rr0;var top=hsAt(rr0);if(ss0>top-0.3)ss0=top-0.3;if(ss0<0.5)ss0=0.5;
+        Mr2[k]=samp(Mr,rr0,ss0);Ms2[k]=samp(Ms,rr0,ss0)}
+      var tmp=Mr;Mr=Mr2;Mr2=tmp;tmp=Ms;Ms=Ms2;Ms2=tmp;
+      // record the colour leaving through the orifice
+      var bi=Math.min(NB-1,Math.floor(Vd/Vtot*NB));if(!exitCol[bi])exitCol[bi]=colAt(Mr[0],Ms[0]);
+      Vd+=Q*h;t+=h;
+    }
+    hist.push([t,Vd/1000]);if(hist.length>3000)hist.shift();
+  }
+  function colAt(r,s){var j=Math.min(NR-1,Math.max(0,Math.floor(r))),i=Math.min(NS-1,Math.max(0,Math.floor(s))),k=(i*NR+j)*3;return [src[k],src[k+1],src[k+2]]}
+  function exitAt(v){var b=Math.min(NB-1,Math.floor(v/Vtot*NB));for(var q=b;q>=0;q--)if(exitCol[q])return exitCol[q];return [220,180,104]}
+  function draw(){
+    var s=scaleOf();ctx.setTransform(s,0,0,s,0,0);ctx.clearRect(0,0,W,H);if(!prf)return;
+    var ang=flipAngle(),gp=glassPath(prf),d=img.data,i,j;d.fill(0);
+    if(!empty)for(i=0;i<NS;i++){var y=Math.round(CY-(i+0.5));if(y<0||y>=H)continue;for(j=0;j<NR;j++){if(j+0.5>=wrow[i])break;if(i+0.5>hs[j])continue;
+      var k=i*NR+j,c=colAt(Mr[k],Ms[k]);px(d,CX+j,y,c);px(d,CX-1-j,y,c)}}
+    for(i=0;i<NS;i++){var y2=Math.round(CY+(NS-1-i)+0.5);if(y2<0||y2>=H)continue;var wl=wrow[NS-1-i];for(j=0;j<NR&&j+0.5<wl;j++){var cv2=lowCov[i*NR+j];if(cv2>Vd)continue;var c2=exitAt(cv2);px(d,CX+j,y2,c2);px(d,CX-1-j,y2,c2)}}
+    offc.putImageData(img,0,0);
+    ctx.save();ctx.translate(CX,CY);ctx.rotate(ang);ctx.translate(-CX,-CY);
+    ctx.fillStyle="#8a6a33";var G=GEOM[2];[CX-G.W/2-22,CX+G.W/2+14].forEach(function(x){ctx.fillRect(x,CY-G.H-6,8,2*G.H+12)});
+    ctx.fillStyle=css("--glass");ctx.fill(gp);ctx.imageSmoothingEnabled=false;ctx.drawImage(off,0,0);
+    if(!jam&&!empty&&Vd>0){var ex=exitAt(Vd);ctx.strokeStyle="rgb("+ex.map(Math.round).join(",")+")";ctx.lineWidth=Math.max(1,o.D*sc*0.6);ctx.beginPath();ctx.moveTo(CX,CY);ctx.lineTo(CX,CY+NS-apexNow());ctx.stroke()}
+    ctx.lineWidth=2;ctx.strokeStyle=css("--glassline");ctx.stroke(gp);ctx.fillStyle="#b08a4a";rr(CX-G.W/2-34,CY-G.H-22,G.W+68,18,5);rr(CX-G.W/2-34,CY+G.H+4,G.W+68,18,5);ctx.restore();
+  }
+  function apexNow(){var v=Vd*sc*sc*sc;for(var a=0;a<pileV.length;a++)if(pileV[a]>=v)return a;return pileV.length}
+  function px(d,x,y,c){if(x<0||x>=W)return;var k=(y*W+x)*4;d[k]=c[0];d[k+1]=c[1];d[k+2]=c[2];d[k+3]=255}
+  function flip(){ // what was in the bottom becomes the new top; layers reverse
+    var nf=new Uint8ClampedArray(NS*NR*3),i,j,L=0,v=0,target=Vd*sc*sc*sc,acc=0;
+    for(i=0;i<NS;i++){var a=0;for(j=0;j<NR;j++)if(j+0.5<wrow[i])a+=2*Math.PI*(j+0.5);if(acc+a>=target){L=i+(target-acc)/Math.max(1,a);break}acc+=a;L=i+1}
+    for(i=0;i<NS;i++)for(j=0;j<NR;j++){var depth=Math.max(0,Math.min(NS-1,Math.round(L-(i+0.5)))),q=depth,c=null;
+      while(q>=0){var cvv=lowCov[q*NR+j];if(cvv<=Vd){c=exitAt(cvv);break}q--}if(!c)c=exitAt(0);var k=(i*NR+j)*3;nf[k]=c[0];nf[k+1]=c[1];nf[k+2]=c[2]}
+    var keep=Vd;srcFlip=nf;var f0=o.fill;rebuildKeep(keep);srcFlip=null;
+  }
+  function rebuildKeep(vol){var save=ctl.cfill;rebuild();
+    // set the surface to hold the transferred volume
+    var target=vol*sc*sc*sc,acc=0,i,j;fillLevel=0;for(i=0;i<NS;i++){var a=0;for(j=0;j<NR;j++)if(j+0.5<wrow[i])a+=2*Math.PI*(j+0.5);if(acc+a>=target){fillLevel=i+(target-acc)/Math.max(1,a);break}acc+=a}
+    for(j=0;j<NR;j++)hs[j]=fillLevel;Vtot=vol;Vd=0;t=0;hist=[];
+    var nf=srcFlip;src=new Uint8ClampedArray(nf);}
+  function stats(){
+    $("lTop").textContent="Top";$("lBot").textContent="Bottom";$("lRate").textContent="Flow";$("lTime").textContent="Real time";
+    $("sTop").textContent=Math.round(100*(1-Vd/Vtot))+"%";$("sBot").textContent=Math.round(100*Vd/Vtot)+"%";
+    $("sRate").textContent=(Q/1000).toFixed(Q<1000?3:2)+" ml/s";$("sTime").textContent=mmss(t);
+    var P=Q>0?Vtot/Q:Infinity,gs=Q/(Math.PI*Math.pow(o.d,3)/6/0.6);
+    $("cmp").textContent=jam?"No flow: the orifice is under 4 grain diameters, so a stable arch forms (Mills: at least 4–5 d).":
+      "Mills et al. (1996): P = K·V/(D − d)^2.5 with K = "+K[o.shape]+" for this shape → period "+(isFinite(P)?mmss(P):"–")+" for "+(Vtot/1000).toFixed(1)+" ml · about "+fmtBig(gs)+" grains/s · playback "+o.speed+"×"+(empty?" · empty":"");
+    if(auto&&empty&&!flipA){emptyT+=.2;if(emptyT>1)startFlip()}else if(!empty)emptyT=0;
+    if(empty&&!auto&&!paused&&!APdone&&$("autopause").checked){APdone=true;setPaused(true)}
+  }
+  function fmtBig(v){return v>=1e6?(v/1e6).toFixed(1)+" million":v>=1e3?Math.round(v/1e3)+" thousand":Math.round(v)+""}
+  function plots(){
+    var xs=hist.map(function(q){return q[0]}),ys=hist.map(function(q){return Vtot/1000-q[1]}),Pp=Q>0?Vtot/Q:1;
+    plot($("p1"),[{x:xs,y:ys,col:"acc"},{x:[0,Pp],y:[Vtot/1000,0],dash:1}],{xmax:Math.max(1,Math.min(Pp*1.05,1e7)),xl:"real time (s)",title:"Sand left in the top bulb (ml)"});
+    var shapes=["hourglass","cone","silo","bottle"],S=[],D,dm=[];
+    shapes.forEach(function(sh){var x=[],y=[];for(D=Math.max(4*o.d,0.3);D<=12;D+=0.1){x.push(D);y.push(K[sh]*Vtot/1000/Math.pow(D-o.d,2.5)/60)}S.push({x:x,y:y,dash:sh!==o.shape,col:sh===o.shape?"acc":""})});
+    if(o.shape==="bottle"){var f=Vtot/1000/466;dm=[[2.8,19.75*f],[3.6,11.52*f]]}
+    var cur=Q>0?[[o.D,Vtot/Q/60]]:[];
+    plot($("p2"),S.map(function(s){return {x:s.x,y:s.y.map(function(v){return Math.min(v,cur.length?cur[0][1]*4+1:60)}),dash:s.dash,col:s.col}}),{xmax:12,xl:"orifice D (mm)",title:"Period (min): this shape solid, others dashed; circles: Mills' bottle data",dots:cur,marks:dm});
+  }
+  function note(){return "Real glass: bulb "+o.W+" × "+o.H+" mm, orifice "+o.D+" mm, grains "+o.d+" mm (orifice = "+(o.D/o.d).toFixed(1)+" d, bulb = "+Math.round(o.W/o.d)+" d wide). Kinematic parameter B = 2.3 d."}
+  function warnTxt(){return jam?"The orifice is under 4 grain diameters: it jams.":o.D<5*o.d?"Between 4 and 5 grain diameters the flow may stop now and then.":""}
+  return {rebuild:rebuild,step:step,draw:draw,flip:flip,stats:stats,plots:plots,note:note,warn:warnTxt,texture:function(){if(src)texture()},
+    reset:function(){rebuild()},read:read};
+})();
+bindRange("cw",function(v){return v+" mm"},function(){C.rebuild()});
+bindRange("ch",function(v){return v+" mm"},function(){C.rebuild()});
+bindRange("cd",function(v){return (0.05*Math.pow(20,v)).toFixed(2)+" mm"},function(){C.rebuild()});
+bindRange("cD",function(v){return v.toFixed(1)+" mm"},function(){C.rebuild()});
+bindRange("cfill",function(v){return Math.round(v*100)+"%"},function(){C.rebuild()});
+bindRange("crep",function(v){return v+"°"},function(){C.rebuild()});
+bindRange("cspd",function(v){return Math.round(Math.pow(10,v*3))+"× real time"},function(){C.read()});
+$("cshape").addEventListener("change",function(){C.rebuild()});
+// ---------------- modes, buttons, loop ----------------
+function setMode(m){mode=m;["m2","m3","mc"].forEach(function(id){var on=(id==="m2"&&m==="2d")||(id==="m3"&&m==="3d")||(id==="mc"&&(m==="cont"||m==="fine"));$(id).className=on?"on":"";$(id).setAttribute("aria-pressed",on)});
+  $("sec").hidden=!(m==="3d"||m==="fine");$("recBox").hidden=m==="cont";$("magPanel").hidden=m==="cont";if(REP.on)stopReplay();$("demPanel").hidden=m==="cont";$("contPanel").hidden=m!=="cont";$("fineBox").hidden=m!=="cont"&&m!=="fine";$("backendRow").hidden=m==="fine";$("realRow").hidden=m==="cont";$("feedRow").hidden=m==="cont";$("qDEM").hidden=m==="cont";$("fastRow").hidden=m==="cont";$("p3").hidden=m==="cont";
+  $("lTop").textContent="Top";$("lBot").textContent="Bottom";$("lRate").textContent="Grains/s";
+  $("lsp").value=m==="cont"?8:15;$("lsp").dispatchEvent(new Event("input"));
+  send({cmd:"run",on:false});
+  if(m==="2d"){$("neck").value=5;$("r").value=3;$("fill").value=0.85;$("stiff").checked=true}else if(m==="3d"){$("neck").value=5.5;$("r").value=3;$("fill").value=0.45;$("stiff").checked=false}else if(m==="fine"){$("neck").value=8;$("r").value=1.25;$("fill").value=0.45;$("stiff").checked=false;$("rec").checked=false}
+  ["neck","r","fill"].forEach(function(id){$(id).dispatchEvent(new Event("input"))});
+  size();magUI();clearTimeout(rbT);rebuild();}
+$("m2").addEventListener("click",function(){setMode("2d")});$("m3").addEventListener("click",function(){setMode("3d")});function fineMode(){return backend.gpu&&$("fineModel").value==="dem"?"fine":"cont"}
+$("mc").addEventListener("click",function(){setMode(fineMode())});$("fineModel").addEventListener("change",function(){if(mode==="cont"||mode==="fine")setMode(fineMode())});
+function startFlip(){if(!flipA){flipA={t:0};if(mode!=="cont")send({cmd:"run",on:false})}}
+function finishFlip(){flipA=null;emptyT=0;SNQ=[];PB=null;if(APdone){APdone=false;paused=false;$("pause").textContent="Pause"}if(mode==="cont"){C.flip()}else{BMs=[];T=[];B=[];TH=[];RM=[];RT=[];runId++;if(REP.on)stopReplay();send({cmd:"flip",rid:runId});recReset();send({cmd:"run",on:!paused})}}
+$("flip").addEventListener("click",startFlip);
+$("reset").addEventListener("click",function(){rebuild()});
+function setPaused(v){paused=v;$("pause").textContent=paused?"Run":"Pause";if(mode!=="cont"&&!REP.on)send({cmd:"run",on:!paused})}
+$("pause").addEventListener("click",function(){setPaused(!paused)});
+var drag=null;
+cv.addEventListener("pointerdown",function(e){if(is3()){drag=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId)}});
+cv.addEventListener("pointermove",function(e){if(drag){yaw+=(e.clientX-drag[0])*.01;pit=Math.max(-1.3,Math.min(1.3,pit+(e.clientY-drag[1])*.01));drag=[e.clientX,e.clientY]}});
+cv.addEventListener("pointerup",function(){drag=null});
+function size(){var d=Math.min(window.devicePixelRatio||1,2),w=cv.clientWidth||W;cv.width=Math.round(w*d);cv.height=Math.round(w*d*H/W);
+  ["p1","p2","p3","p4","p5","p6","p7","p8","p9","s1","s2"].forEach(function(id){var c=$(id);c.width=Math.round(c.clientWidth*d);c.height=Math.round(c.clientHeight*d)})}
+window.addEventListener("resize",size);
+var last=0,statT=0,plotT=0,fr=0;
+function frame(ts){
+  var dt=Math.min((ts-last)/1000,0.05);last=ts;
+  if(flipA){flipA.t+=dt/0.9;if(flipA.t>=1)finishFlip()}
+  if(mode==="cont"){if(!flipA&&!paused)C.step(dt);C.draw()}
+  else{if(REP.on)replayStep(dt);else{playStream(dt);if(!reqSnap){reqSnap=true;send({cmd:"snap"})}}is3()?drawDEM3():drawDEM2();if(is3()&&(fr++&1))sections()}
+  statT+=dt;plotT+=dt;
+  if(statT>0.2){statT=0;if(mode==="cont")C.stats();else statsDEM();warn()}
+  if(plotT>0.4){plotT=0;if(mode==="cont")C.plots();else{plotsDEM();plotSweep()}}
+  requestAnimationFrame(frame);
+}
+$("about").innerHTML="<b>Contact model.</b> Each pair of grains in contact feels a spring\u2013dashpot normal force and a Coulomb-capped tangential force with a tangential spring (static friction), the same law as LAMMPS <i>pair granular hooke \u2026 tangential linear_history \u2026 damping velocity limit_damping</i>, integrated with velocity Verlet as in LAMMPS <i>fix nve/sphere</i>. Grain radii vary uniformly by the size-spread setting; mass scales with area (2D) or volume (3D), and the contact stiffness scales with grain weight so overlaps stay small at any grain size.<br><br>\n<b>Checked against LAMMPS (2025 release).</b> The same settled grains and the same glass outline were run in both codes and the discharge rates compared. Without tangential springs: 2D cone, silo, flat plate, classic and tapered hourglass at friction 0, 0.4 and 0.8 agreed within \u00b15.5% (13 of 14 cases; noise between repeated runs is about \u00b14%); 3D cone at friction 0, 0.4 and 0.8 and 3D silo agreed within \u00b14%. With tangential springs and stiff contacts: 2D classic +5%, tapered hourglass +4%, silo \u22123%, 3D cone +0.3%. Single collisions and a grain rolling down the wall match LAMMPS to 1\u20133%.<br><br>\n<b>Checked against experiments.</b> In 3D the flat-plate glass gives Beverloo C = 0.44, k = 1.34 (bulk volume flow); Mills et al. (1996) measured C \u2248 0.48, k \u2248 1.27 for their ballotini \"bottle\" (P = 21\u00b7V/(D \u2212 d)<sup>2.5</sup>). The tapered hourglass runs 2.3\u00d7 faster than the flat plate here, against 2.5\u00d7 for Mills. The 3D bulb is 33 grain diameters wide at the default grain size; in a narrower bulb the walls sit close enough to the orifice to speed up the flat-plate flow by about 13%. In 2D, the flow is within 15\u201330% of the pure-2D disk simulations of Alonso-Marroquin &amp; Mora (2021) at 6\u201312 grain diameters, and the hopper-to-flat ratio of C (1.3) matches Fan et al. (2023). Pure-2D C is about twice their quasi-2D value, as expected for disks with no front and back plates.<br><br>\n<b>Theory curves</b> use Beverloo, Q = C\u00b7(\u03c6/v<sub>grain</sub>)\u00b7\u221ag\u00b7(D \u2212 k\u00b7d)<sup>n</sup>, n = 3/2 in 2D and 5/2 in 3D, with C and k fitted per glass shape to this simulator at friction 0.4 (wall friction equal to grain friction, stiff contacts, static friction), and a measured friction factor (1.66 at friction 0, 0.85 at friction 1). Other settings are not refitted.<br><br>\n<b>Fine-sand mode</b> is a continuum model, not grains: discharge from Mills' measured law with his shape constants K (hourglass 8.5, cone 8, silo 19, flat plate 21); flow inside the bulb from the kinematic model of Nedderman &amp; T\u00fcz\u00fcn (downward speed diffuses upward with B = 2.3 d, horizontal speed B\u00b7\u2202v/\u2202r, axisymmetric), switched to near-uniform mass flow where the wall is steeper than about 30\u201345\u00b0 from vertical; free surface drawn down by the local speed and relaxed to the angle of repose; the bottom pile grows as a cone at the angle of repose and records the colour of what arrives. It reproduces the period and the qualitative layer shapes, not grain-scale detail.<br><br>\n<b>Time.</b> Grain modes use g = 900 px/s\u00b2. Converting to a real glass by Froude scaling multiplies simulated time by \u221a(900\u00b7d<sub>real</sub>/(9810\u00b7d<sub>px</sub>)), so a 6 px grain standing for 0.55 mm sand runs about 11\u00d7 slower than the real glass would.\n<br><br><b>GPU engine.</b> When the browser offers WebGPU on real graphics hardware, the same model runs as compute shaders: one thread per grain sums all forces on that grain (bucketed cell lists rebuilt every step, tangential-spring history per grain and partner, leapfrog integration equivalent to velocity Verlet). Against the CPU engine: two-grain collisions agree to about 0.1% and a grain sliding on the wall to 1\u20133% (32-bit floats on the GPU); discharge rates agree within run-to-run noise (2D classic +2.6%, 3D cone +0.1%). The browser reports that a batch of GPU work has finished only after a delay that does not depend on the batch size (a few ms to over 100 ms, depending on browser, operating system and driver). At every start the page measures that delay and the GPU time per step separately, sizes batches to about 20 ms of GPU work and keeps enough of them queued to cover the delay; the measured values are shown under Compute on. It also times both engines on the actual fill (the CPU while settling the sand, the GPU for 0.4 s from the same settled state) and uses the GPU only if it is at least 15% faster; for a few thousand grains a fast CPU core often wins. On the GPU, two batches of steps are kept queued and positions are copied back asynchronously only when a frame, data sample or recording frame is due, so the GPU never waits for the page. When the run is paced, each GPU batch covers one display frame of simulated time and is followed by a readback, and the page plays the arriving pictures back on a steady clock slightly behind the newest one, so the motion stays smooth even when the browser delivers finished GPU work in bursts. Pipelined GPU runs from the same start as the CPU gave discharge rates within 4% (2D) and 2% (3D).<br><br><b>Replay.</b> While recording, the simulation emits a frame every 1/30 s of simulated time, stored as 16-bit positions in grain order; long recordings are thinned to stay under about 300 MB. Replay plays the frames back at a chosen multiple of simulated time, or at the real glass's speed using the Froude time factor.<br><br><b>Magnetic grains.</b> Ferromagnetic grains are soft induced dipoles (fixed-dipole method): each carries m = \u03c7<sub>eff</sub>\u00b7V\u00b7B/\u03bc<sub>0</sub> along the local field, \u03c7<sub>eff</sub> = 3\u03c7/(\u03c7+3), and every pair closer than 2.5 mean diameters feels the full dipole\u2013dipole force (3\u03bc<sub>0</sub>/4\u03c0r<sup>4</sup>)[(m<sub>1</sub>\u00b7r\u0302)m<sub>2</sub> + (m<sub>2</sub>\u00b7r\u0302)m<sub>1</sub> + (m<sub>1</sub>\u00b7m<sub>2</sub>)r\u0302 \u2212 5(m<sub>1</sub>\u00b7r\u0302)(m<sub>2</sub>\u00b7r\u0302)r\u0302]. Strength enters through the magnetic Bond number Bo = \u03c7<sub>eff</sub><sup>2</sup>B<sup>2</sup>/(4\u03bc<sub>0</sub>\u03c1gd), the attraction between two touching grains lined up with the field divided by grain weight, using the real grain size set under Layers and units. Checked: an aligned touching pair attracts with exactly Bo\u00b7mg and a side-by-side pair repels with half of that, falling off as (d/r)<sup>4</sup>; the GPU engine matches the CPU for a magnetic pair in an oblique field. Real steel or magnetite grains are millions of times stiffer than the model contacts, so a strong magnetic pull barely dents them; the model keeps that true by raising the contact stiffness to at least 10\u00b7Bo (in units of grain weight per radius) whenever the field is strong, with the time step shortened to match. Without this, above Bo \u2248 100 the pull between touching grains grows faster with approach than the contact spring pushes back, grains sink most of a diameter into each other and the stored spring energy throws them out at several times free-fall speed: a numerical artefact, not physics. With it, overlaps stay below about 15% of a diameter and the fastest grains move no faster than free fall even at Bo = 1000. Mutual induction between neighbours (the mutual-dipole method) is not included, so chains are somewhat weaker than in a high-\u03c7 experiment. Sweeps rerun a reduced copy of the current glass in a background thread and fit a straight line and Q = Q<sub>0</sub>/(1 + (Bo/Bo<sub>\u00bd</sub>)<sup>p</sup>) for strength, and A + B\u00b7cos 2\u03b8 for direction.<br>\nReferences: C. Sunday et al., Phys. Rev. E 110, 044901 (2024) (Bond number, magnetic mixtures); H. Williams &amp; A. M. Algatheem, Eur. J. Phys. 46, 065803 (2025) (ironsand hourglass, chains above a critical field); H. Williams et al., Phys. Scr. 101, 422001 (2026) (review of magnetic granular models); Granular Matter 28:53 (2026) (fixed- and mutual-dipole DEM, magnetic time step).<br><br><b>Mixtures.</b> A fixed random subset of grains (the magnetic fraction \u03c6) is ferromagnetic; the rest feel only contact forces, like the steel\u2013brass mixtures of Sunday et al. (2024). A live graph shows the magnetic share of the sand that has fallen, which reveals any segregation. In a test at Bo = 16 with a horizontal field the flow fell as Q = 111.9 \u2212 1.1\u03c6 \u2212 73.7\u03c6\u00b2 grains/s (R\u00b2 = 0.998, against 0.920 for a straight line): almost all the loss comes from magnetic\u2013magnetic contacts.<br><br><b>Field shapes and timing.</b> The field is b(x,t)\u00b7B<sub>0</sub> with b dimensionless. Shapes: uniform; a linear gradient along the field axis taken from a scalar potential, so it is curl- and divergence-free; and a point-dipole magnet below the glass or beside the neck, with B<sub>0</sub> the value at the nearest glass wall. A gradient adds the body force F = (V\u03c7<sub>eff</sub>/2\u03bc<sub>0</sub>)\u2207|B|\u00b2, which in simulation units is mg\u00b7(4\u00b7Bo\u00b7d/\u03c7<sub>eff</sub>)\u00b7\u2207|b|\u00b2/2. Timing: constant, AC sine, on/off pulses, rotating in the plane, ramp up and ramp down, with frequencies and ramp times set in real-glass units and converted by the Froude factor. Dipole moments follow the field instantly (soft magnetic grains, no hysteresis). Checks: every field is curl-free (and divergence-free in 3D) to rounding error; the gradient force on a lone grain matches the formula to 4\u20135 figures; the GPU engine matches the CPU for gradient, magnet, radial, AC, pulsed and rotating fields to about 1%. In a horizontal field pulsed at 4.7 Hz (Bo = 27) the flow drops close to zero while the field is on and recovers within a fraction of a second when it switches off.<br><br><b>Magnet strength and radial gradient.</b> With a magnet preset the strength slider sets the magnet's own surface field (0.1\u20131000 mT; a neodymium magnet is roughly 300\u20131400 mT). The magnet, of radius 0.15 bulb heights, sits with its centre 0.2 bulb heights from the nearest glass wall, so that wall sees (0.15/0.2)\u00b3 = 0.42 of the surface field, falling off as 1/r\u00b3 (point dipole). The radial gradient is the axisymmetric field with potential y + k(y\u00b3/3 \u2212 y\u03c1\u00b2/2) (3D) or y + k(y\u00b3 \u2212 3x\u00b2y)/3 (2D), centred on the neck: its strength changes by the factor 1 + G from the axis to the bulb wall at neck height, and, as Maxwell's equations require, changes the opposite way along the axis. It is curl- and divergence-free to rounding error.\n<br><br><b>Endless sand.</b> Grains that have fallen more than 0.4 bulb heights below the neck are put back at rest (falling at 60 px/s) in a band under the top of the upper bulb, at random spots that clear every grain already there. This is a periodic boundary in the flow direction, so the discharge reaches a steady rate. Test: the 2D classic glass held 115 \u00b1 6 grains/s for 8 s against 110 predicted by Beverloo, with no overlaps above 6% in the upper bulb.\n<br><br><b>Sweeps.</b> Thorough sweeps run each point three times (five for very thorough) from different random fills, each run with endless sand, a warm-up and a fixed measuring window, and fit the rate by least squares; error bars are the standard deviation between repeats. Runs are shared across several background threads.\n<br><br><b>Comparison with ordinary sand.</b> When the field is on, an identical twin of the run (same random fill, glass and contact settings, magnetism off) runs in a background thread, and the flow is compared over 1 s windows of the same simulated time.\n<br><br><b>Reading the field from the hourglass.</b> A finished sweep is inverted into a calibration. For field strength, Q/Q\u2080 = 1/(1 + (Bo/Bo\u00bd)<sup>p</sup>) with Bo \u221d B\u00b2 gives B = B\u00bd\u00b7(Q\u2080/Q \u2212 1)<sup>1/2p</sup>, and since the emptying time P \u221d 1/Q, B = B\u00bd\u00b7(P/P\u2080 \u2212 1)<sup>1/2p</sup>. The smallest detectable field is the one whose flow drop equals twice the run-to-run scatter at zero field. For direction, Q = A + B\u00b7cos 2\u03b8 gives \u03b8 = \u00bd\u00b7arccos((Q \u2212 A)/B), which cannot tell \u03b8 from 180\u00b0 \u2212 \u03b8. The live run is placed on the calibration using its flow relative to the ordinary-sand twin.\n<br><br><b>Strong fields.</b> The contact stiffness rises to at least 10\u00b7Bo whenever the field is strong (see Magnetic grains); without it, grains sank up to 98% of a diameter into each other at Bo = 1000 and were thrown out at 28 times free-fall speed. The clumps seen before that fix were this artefact; with it, the grains form chains along the field (43% of contacts within 30\u00b0 of the field at Bo = 420, against 31% with no field), as soft induced dipoles should.\n<br><br><b>Fine sand on the GPU.</b> With WebGPU the fine-sand mode runs the same 3D grain model with small grains (about 100,000 at the default size, up to 400,000), settled and run entirely on the GPU; the continuum model remains as a fallback. GPU work is batched into one compute pass per batch, and each grain's magnetic moment is computed once per step and stored, instead of being recomputed by every neighbour. Results were unchanged by these optimisations (identical to the previous GPU code in the CPU\u2013GPU comparison tests).<br><br><b>Saved recordings.</b> Save recording writes the replay to a .hgrec file in your downloads: the glass and all settings, the frame times and counts, grain sizes, layer heights and magnetic flags, then every frame as 16-bit positions, each frame stored as its difference from the previous one and the whole file gzip-compressed (about 3\u00d7 smaller). Load recording restores the settings and glass from the file and opens the replay; the loaded recording is kept until Reset. Recordings are otherwise held only in the tab's memory<h3>Grains magnetising each other (mutual induction)</h3>\n<p>By default each grain's moment comes only from the applied field: <i>m</i><sub>i</sub> = \u03c7<sub>eff</sub>V<sub>i</sub><b>B</b><sub>0</sub>(<b>x</b><sub>i</sub>)/\u03bc<sub>0</sub>. With the \"Grains magnetise each other\" option, each grain also feels the dipole fields of the magnetised grains around it (within 2.5 diameters):</p>\n<p style=\"text-align:center\"><b>b</b><sub>i</sub> = <b>b</b><sub>0</sub>(<b>x</b><sub>i</sub>) + \u03a3<sub>j</sub> (\u03c7<sub>eff</sub> r\u0304\u00b3 / 3r<sub>ij</sub>\u00b3) [3(<b>M</b><sub>j</sub>\u00b7<b>n</b>)<b>n</b> \u2212 <b>M</b><sub>j</sub>],&nbsp;&nbsp; <b>M</b><sub>i</sub> = \u03c7<sub>i</sub>(r<sub>i</sub>/r\u0304)\u00b3 <b>b</b><sub>i</sub></p>\n<p>This is solved by one damped Jacobi sweep per time step, starting from the previous step's moments (the grains barely move in one step, so it stays converged). For two touching steel grains along the field the local field rises to 1/(1\u22122a) = 1.27\u00d7 the applied one, and the attraction to 1.62\u00d7; the code reproduces both exactly. In an infinite chain the factor is 1/(1\u2212\u03c7<sub>eff</sub>\u03b6(3)/6) \u2248 2.5 for steel and 1.4 for magnetite, while grains side by side across the field magnetise each other less. Inside dense packing, steel grains see about 2\u00d7 the applied field on average. The local field is capped at 3\u00d7 the applied field, because point dipoles overestimate it when many high-permeability grains touch, and real grains saturate. Contacts are stiffened by the square of the chain factor so grains are not crushed into each other.</p>\n<p>The effect: chains become much stronger and stiffer than in the simple model, and neighbouring chains interact through their enhanced fields, so they can bundle into thicker columns. For steel, mutual induction alone can jam a neck that flows freely without it at the same applied field.</p>\n.";
+$("rec").addEventListener("change",function(){send({cmd:"rec",on:$("rec").checked,fps:REC.fps});recUI()});
+$("fast").addEventListener("change",function(){send({cmd:"speed",v:simSpeed()})});
+$("replay").addEventListener("click",startReplay);$("rexit").addEventListener("click",stopReplay);
+$("rplay").addEventListener("click",function(){if(REP.t>=recDur())REP.t=0;REP.paused=!REP.paused;$("rplay").textContent=REP.paused?"Play":"Pause"});
+$("rt").addEventListener("input",function(){REP.t=+$("rt").value;REP.paused=true;$("rplay").textContent="Play"});
+$("backend").addEventListener("change",function(){rebuild()});
+$("feed").addEventListener("change",function(){send({cmd:"feed",on:$("feed").checked});T=[];B=[];TH=[];RM=[];RT=[];BMs=[]});
+send({cmd:"probe"});size();setMode("2d");requestAnimationFrame(function(t){last=t;frame(t)});
+})();
+
+</script>
+</body>
+</html>
